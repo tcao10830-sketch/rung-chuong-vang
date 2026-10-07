@@ -968,29 +968,28 @@
     });
 
     async function ensureRequestedProfiles() {
-      const requested = [
-        {id:"requested-profile-hao",name:"Hào",emoji:"🌟"},
-        {id:"requested-profile-tam",name:"Tâm",emoji:"🌱"},
-        {id:"requested-profile-hien-minh",name:"Hiển Minh",emoji:"🚀"}
-      ];
-      const normalized = value => String(value ?? "").trim().toLocaleLowerCase("vi-VN");
-      let changed = false;
-      requested.forEach(({id,name,emoji}) => {
-        const existing = students.find(student => normalized(student.id) === normalized(id) || normalized(student.name) === normalized(name));
-        if (existing) return;
-        students.push({id,name,className:"Chưa phân lớp",emoji,stars:0,bestCombo:0,completed:0,updatedAt:now()});
-        changed = true;
-      });
+      // Xóa các hồ sơ MẶC ĐỊNH cũ theo ID cố định.
+      // Chỉ xóa đúng 3 hồ sơ hệ thống, không xóa hồ sơ học sinh mới tạo
+      // dù học sinh đó có tên Hào, Tâm hoặc Hiển Minh.
+      const defaultProfileIds = new Set([
+        "requested-profile-hao",
+        "requested-profile-tam",
+        "requested-profile-hien-minh"
+      ]);
+      const before = students.length;
+      students = students.filter(student => !defaultProfileIds.has(String(student?.id || "")));
       shared.students = students;
-      if (changed) {
+
+      if (students.length !== before) {
         markSharedChanged();
         if (remoteReadCompleted && window.dataSdk && typeof window.dataSdk.create === "function" && typeof window.dataSdk.update === "function") {
           await persistShared(true);
         } else {
           pendingLocalMutation = true;
-          setSyncStatus("Chưa đồng bộ hồ sơ · nguồn dữ liệu dùng chung không khả dụng", true);
+          setSyncStatus("Đã xóa hồ sơ mặc định · chưa đồng bộ", true);
         }
       }
+
       renderProfiles();
       if (document.getElementById("teacher-screen")?.classList.contains("active") && teacherSession.valid) renderStudentsAdmin();
     }

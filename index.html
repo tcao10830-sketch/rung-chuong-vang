@@ -278,7 +278,7 @@
         <div>
          <p data-template-id="teacher-kicker" class="canva-text text-yellow-300 font-black" style="color: rgb(253, 224, 71); font-weight: 900; font-style: normal; font-size: 16px;">KHU VỰC GIÁO VIÊN</p>
          <h1 data-template-id="teacher-title" class="canva-text fun-title text-4xl mt-1" style="color: rgb(255, 255, 255); font-weight: 400; font-style: normal; font-size: 32px;">Trung tâm điều khiển lớp học</h1>
-         <p data-template-id="teacher-copy" class="canva-text text-slate-300 font-semibold mt-2" style="color: rgb(203, 213, 225); font-weight: 600; font-style: normal; font-size: 16px;">Tạo nội dung, điều chỉnh vòng chơi và quản lý hồ sơ học sinh an toàn trên các thiết bị.</p><p class="mt-2 text-xs font-bold text-slate-400">☁️ Dữ liệu chữ + link media được lưu trong nguồn dùng chung; mở cùng website trên PC và điện thoại sẽ nhận cùng một bộ dữ liệu.</p>
+         <p data-template-id="teacher-copy" class="canva-text text-slate-300 font-semibold mt-2" style="color: rgb(203, 213, 225); font-weight: 600; font-style: normal; font-size: 16px;">Tạo nội dung, điều chỉnh vòng chơi và quản lý hồ sơ học sinh an toàn trên các thiết bị.</p>
          <div class="mt-3 flex flex-wrap gap-2 items-center"><span id="save-status" class="text-xs font-extrabold text-slate-300" aria-live="polite">Đang đồng bộ…</span> <button id="sync-retry-button" type="button" class="hidden rounded-lg bg-rose-100 px-2 py-1 text-xs font-black text-rose-700" onclick="refreshSharedData()">Thử đồng bộ lại</button> <button type="button" class="rounded-lg bg-white/10 px-2 py-1 text-xs font-black" onclick="refreshSharedData()">Làm mới dữ liệu</button>
          </div>
         </div><button type="button" data-template-id="teacher-logout-button" class="canva-button rounded-xl bg-white/15 px-4 py-2 font-extrabold" onclick="logoutTeacher()" style="background: rgba(255, 255, 255, 0.15); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Đăng xuất</button>
@@ -291,16 +291,6 @@
         <form id="question-form" class="soft-card p-6">
          <h2 data-template-id="question-form-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Thêm câu hỏi</h2><label data-template-id="question-round-label" class="canva-text block font-extrabold mt-4" for="question-round" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Thuộc vòng chơi</label> <select id="question-round" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select> <label data-template-id="question-input-label" class="canva-text block font-extrabold mt-4" for="question-input" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Nội dung câu hỏi</label> <textarea id="question-input" required="" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3" rows="3"></textarea>
          <div id="option-inputs" class="grid grid-cols-2 gap-3 mt-4"></div>
-         <div class="mt-4 rounded-2xl bg-blue-50 p-4">
-          <p class="font-black text-blue-800">🎬 Nội dung đa phương tiện (không bắt buộc)</p>
-          <p class="text-sm font-semibold text-slate-500 mt-1">Dán link công khai của ảnh, audio hoặc video. Link được lưu cùng câu hỏi nên khi mở bằng máy tính/điện thoại, cả hai thiết bị sẽ dùng cùng dữ liệu.</p>
-          <label class="block font-extrabold mt-3" for="question-image-url">Ảnh minh họa</label>
-          <input id="question-image-url" type="url" placeholder="https://..." class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
-          <label class="block font-extrabold mt-3" for="question-audio-url">Audio phát âm</label>
-          <input id="question-audio-url" type="url" placeholder="https://...mp3" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
-          <label class="block font-extrabold mt-3" for="question-video-url">Video</label>
-          <input id="question-video-url" type="url" placeholder="https://...mp4" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
-         </div>
          <label data-template-id="correct-answer-label" class="canva-text block font-extrabold mt-4" for="correct-answer" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Đáp án đúng</label> <select id="correct-answer" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"> <option value="0">Đáp án A</option><option value="1">Đáp án B</option><option value="2">Đáp án C</option><option value="3">Đáp án D</option> </select> <button type="submit" data-template-id="save-question-button" class="canva-button action mt-5 rounded-xl px-5 py-3 font-black" style="background: rgb(79, 135, 255); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">Lưu câu hỏi</button> <button type="button" data-template-id="bulk-import-button" class="canva-button mt-3 w-full rounded-xl bg-orange-100 px-5 py-3 font-black text-orange-700" onclick="openBulkImportModal()" style="background: rgb(255, 237, 213); color: rgb(194, 65, 12); font-weight: 900; font-style: normal; font-size: 16px;">NHẬP NHANH NHIỀU CÂU HỎI</button>
         </form>
         <section class="soft-card p-6">
@@ -473,7 +463,7 @@
     let teacherSession = {valid:false,expiresAt:0};
     let studentSession = {studentId:null,expiresAt:0};
     let activeStudent = null;
-    let currentRound = 1, quizQuestions = [], questionIndex = 0, score = 0, answered = false;
+    let currentRound = 1, quizQuestions = [], questionIndex = 0, score = 0, answered = false, currentAttemptId = null;
     let authMode = null;
     let currentTeacherTab = "questions";
 
@@ -559,14 +549,39 @@
         return !tombstone || new Date(student.updatedAt || 0) > new Date(tombstone.updatedAt || 0);
       });
     }
+    function progressAttempts(item) {
+      if (Array.isArray(item?.attempts)) return item.attempts;
+      if (Array.isArray(item?.answers) && item.answers.length) {
+        return [{
+          id: String(item.attemptId || `legacy-${item.startedAt || item.updatedAt || Date.now()}`),
+          answers: item.answers,
+          score: Number(item.score || item.answers.filter(a => a.correct).length * 100),
+          startedAt: item.startedAt || item.updatedAt || now(),
+          completedAt: item.completedAt || null,
+          updatedAt: item.updatedAt || now(),
+          legacy: true
+        }];
+      }
+      return [];
+    }
     function mergeProgress(localProgress, remoteProgress) {
       const keys = new Set([...Object.keys(localProgress || {}), ...Object.keys(remoteProgress || {})]);
       const result = {};
       keys.forEach(key => {
         const a = localProgress?.[key], b = remoteProgress?.[key];
-        if (!a) result[key] = b;
-        else if (!b) result[key] = a;
-        else result[key] = updatedValue(a) >= updatedValue(b) ? a : b;
+        if (!a) { result[key] = b; return; }
+        if (!b) { result[key] = a; return; }
+        const attempts = new Map();
+        [...progressAttempts(a), ...progressAttempts(b)].forEach(attempt => {
+          const id = String(attempt.id || `attempt-${attempt.startedAt || attempt.updatedAt || Math.random()}`);
+          const existing = attempts.get(id);
+          if (!existing || updatedValue(attempt) >= updatedValue(existing)) attempts.set(id, attempt);
+        });
+        const mergedAttempts = [...attempts.values()].sort((x,y) => new Date(x.startedAt || 0).getTime() - new Date(y.startedAt || 0).getTime());
+        result[key] = {
+          attempts: mergedAttempts,
+          updatedAt: Math.max(updatedValue(a), updatedValue(b)) ? new Date(Math.max(updatedValue(a), updatedValue(b))).toISOString() : now()
+        };
       });
       return result;
     }
@@ -1046,6 +1061,7 @@
       currentRound = roundId;
       quizQuestions = questions.filter(q => q.round === roundId);
       if (!quizQuestions.length) return toast("Vòng này chưa có câu hỏi.");
+      currentAttemptId = `attempt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       questionIndex = 0; score = 0;
       showScreen("quiz-screen"); renderQuestion();
     }
@@ -1125,11 +1141,19 @@
     function recordProgress(question,selectedIndex,correct) {
       if (!activeStudent || activeStudent.id === "guest") return;
       const key = progressKey(activeStudent.id,currentRound);
-      const item = progressHistory[key] || {answers:[],score:0,startedAt:now(),completedAt:null,updatedAt:now()};
-      const existing = item.answers.find(a => a.questionId === question.id);
+      const item = progressHistory[key] || {attempts:[],updatedAt:now()};
+      const attempts = progressAttempts(item);
+      item.attempts = attempts;
+      let attempt = attempts.find(a => String(a.id) === String(currentAttemptId));
+      if (!attempt) {
+        attempt = {id:currentAttemptId || `attempt-${Date.now()}-${Math.random().toString(16).slice(2)}`,answers:[],score:0,startedAt:now(),completedAt:null,updatedAt:now()};
+        currentAttemptId = attempt.id;
+        attempts.push(attempt);
+      }
       const answer = {questionId:question.id,selectedIndex,correctIndex:question.correct,correct,answeredAt:now()};
-      if (existing) Object.assign(existing,answer); else item.answers.push(answer);
-      item.score = item.answers.filter(a => a.correct).length * 100;
+      attempt.answers.push(answer);
+      attempt.score = attempt.answers.filter(a => a.correct).length * 100;
+      touchEntity(attempt);
       touchEntity(item);
       progressHistory[key] = item;
     }
@@ -1156,7 +1180,8 @@
         activeStudent.completed = Math.max(activeStudent.completed || 0,Math.min(rounds.length,currentRound));
         touchEntity(activeStudent);
         const item = progressHistory[progressKey(activeStudent.id,currentRound)];
-        if (item) { item.completedAt = now(); touchEntity(item); }
+        const attempt = progressAttempts(item).find(a => String(a.id) === String(currentAttemptId));
+        if (attempt) { attempt.completedAt = now(); touchEntity(attempt); touchEntity(item); }
         markSharedChanged(); persistShared(true);
       }
       if (quit) { renderHome(); showScreen("home-screen"); return; }
@@ -1284,10 +1309,7 @@
         round:Number(document.getElementById("question-round").value),
         q:document.getElementById("question-input").value.trim(),
         options:[0,1,2,3].map(i => document.getElementById(`opt-${i}`).value.trim()),
-        correct:Number(document.getElementById("correct-answer").value),
-        imageUrl:document.getElementById("question-image-url").value.trim(),
-        audioUrl:document.getElementById("question-audio-url").value.trim(),
-        videoUrl:document.getElementById("question-video-url").value.trim()
+        correct:Number(document.getElementById("correct-answer").value)
       });
       if (!record.q || record.options.some(x => !x)) return toast("Hãy điền đầy đủ câu hỏi và bốn đáp án.");
       questions.push(record); shared.questions = questions;
@@ -1344,46 +1366,55 @@
       markSharedChanged(); await persistShared(true); event.target.reset(); renderStudentsAdmin(); renderProfiles(); toast("Đã thêm hồ sơ.");
     });
     const progressView = {student:"",round:"",status:"",sort:"name",limit:50,open:new Set(),detailOpen:new Set(),answerFilter:new Map()};
-    function progressStatus(item, round, questionCount) {
+    function progressStatus(attempt, round, questionCount) {
+      const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
       if (!questionCount) return {label:"Chưa có câu hỏi", tone:"text-slate-500"};
-      if (round.locked && !(item?.answers?.length)) return {label:"Chưa mở", tone:"text-slate-500"};
-      if (!item?.answers?.length) return {label:"Chưa bắt đầu", tone:"text-slate-500"};
-      if (item.completedAt) return {label:"Đã hoàn thành/Đã qua", tone:"text-emerald-700"};
+      if (round.locked && !answers.length) return {label:"Chưa mở", tone:"text-slate-500"};
+      if (!answers.length) return {label:"Chưa bắt đầu", tone:"text-slate-500"};
+      if (attempt?.completedAt) return {label:"Đã hoàn thành/Đã qua", tone:"text-emerald-700"};
       return {label:"Đang làm", tone:"text-blue-700"};
     }
-    function renderProgressAnswers(student, round, item, host) {
-      const answers = Array.isArray(item?.answers) ? item.answers : [];
-      const filter = progressView.answerFilter.get(`${student.id}:${round.id}`) || "all";
+    function renderProgressAnswers(student, round, attempt, host) {
+      const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
+      const filterKey = `${student.id}:${round.id}:${attempt?.id || "unknown"}`;
+      const filter = progressView.answerFilter.get(filterKey) || "all";
       const visible = answers.filter(a => filter === "all" || (filter === "correct" ? a.correct : !a.correct));
       const counts = {all:answers.length,correct:answers.filter(a=>a.correct).length,wrong:answers.filter(a=>!a.correct).length};
-      host.innerHTML = `<div class="flex flex-wrap gap-2 mb-2"><button type="button" data-answer-filter="all" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="all"?"bg-slate-800 text-white":"bg-slate-100"}">Tất cả (${counts.all})</button><button type="button" data-answer-filter="correct" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="correct"?"bg-emerald-600 text-white":"bg-emerald-100 text-emerald-700"}">Đúng (${counts.correct})</button><button type="button" data-answer-filter="wrong" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="wrong"?"bg-rose-600 text-white":"bg-rose-100 text-rose-700"}">Sai (${counts.wrong})</button></div><div class="space-y-1">${visible.map((a,index)=>{const q=questions.find(row=>String(row.id)===String(a.questionId));const chosen=q?.options?.[a.selectedIndex]||"Chưa có dữ liệu";const correct=q?.options?.[a.correctIndex]||"Chưa có dữ liệu";return `<details class="rounded-lg bg-white p-2 text-sm"><summary class="cursor-pointer"><span class="font-black">${index+1}. ${escapeHtml(q?.q||"Câu hỏi đã bị xóa")}</span> <span class="ml-2 font-black ${a.correct?"text-emerald-700":"text-rose-700"}">${a.correct?"Đúng":"Sai"}</span></summary><div class="mt-2 text-slate-600"><p>Lựa chọn: ${escapeHtml(chosen)} · Đáp án đúng: ${escapeHtml(correct)}</p><p class="mt-1">Giải thích: ${escapeHtml(q?.explanation||"Chưa có dữ liệu")} · Thời điểm: ${escapeHtml(a.answeredAt||"Chưa có dữ liệu")}</p></div></details>`;}).join("")||'<p class="text-sm font-bold text-slate-500">Chưa có dữ liệu</p>'}</div>`;
-      host.querySelectorAll("[data-answer-filter]").forEach(button=>button.onclick=()=>{progressView.answerFilter.set(`${student.id}:${round.id}`,button.dataset.answerFilter);renderProgressAnswers(student,round,item,host);});
+      host.innerHTML = `<div class="mb-2 text-xs font-black text-slate-500">Lượt chơi · ${escapeHtml(attempt?.startedAt || "Chưa có thời điểm")}</div><div class="flex flex-wrap gap-2 mb-2"><button type="button" data-answer-filter="all" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="all"?"bg-slate-800 text-white":"bg-slate-100"}">Tất cả (${counts.all})</button><button type="button" data-answer-filter="correct" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="correct"?"bg-emerald-600 text-white":"bg-emerald-100 text-emerald-700"}">Đúng (${counts.correct})</button><button type="button" data-answer-filter="wrong" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="wrong"?"bg-rose-600 text-white":"bg-rose-100 text-rose-700"}">Sai (${counts.wrong})</button></div><div class="space-y-1">${visible.map((a,index)=>{const q=questions.find(row=>String(row.id)===String(a.questionId));const chosen=q?.options?.[a.selectedIndex]||"Chưa có dữ liệu";const correct=q?.options?.[a.correctIndex]||"Chưa có dữ liệu";return `<details class="rounded-lg bg-white p-2 text-sm"><summary class="cursor-pointer"><span class="font-black">${index+1}. ${escapeHtml(q?.q||"Câu hỏi đã bị xóa")}</span> <span class="ml-2 font-black ${a.correct?"text-emerald-700":"text-rose-700"}">${a.correct?"Đúng":"Sai"}</span></summary><div class="mt-2 text-slate-600"><p>Lựa chọn: ${escapeHtml(chosen)} · Đáp án đúng: ${escapeHtml(correct)}</p><p class="mt-1">Giải thích: ${escapeHtml(q?.explanation||"Chưa có dữ liệu")} · Thời điểm: ${escapeHtml(a.answeredAt||"Chưa có dữ liệu")}</p></div></details>`;}).join("")||'<p class="text-sm font-bold text-slate-500">Chưa có dữ liệu</p>'}</div>`;
+      host.querySelectorAll("[data-answer-filter]").forEach(button=>button.onclick=()=>{progressView.answerFilter.set(filterKey,button.dataset.answerFilter);renderProgressAnswers(student,round,attempt,host);});
     }
     function renderProgressTracker() {
       const overview=document.getElementById("progress-overview"), box=document.getElementById("progress-tracker-list");
       const pairs=students.flatMap(s=>rounds.map(r=>({s,r,item:progressHistory[progressKey(s.id,r.id)]||null,qs:questions.filter(q=>q.round===r.id)})));
-      const started=pairs.filter(x=>x.item?.answers?.length), completed=pairs.filter(x=>x.item?.completedAt), answered=started.reduce((n,x)=>n+(x.item.answers||[]).length,0), correct=started.reduce((n,x)=>n+(x.item.answers||[]).filter(a=>a.correct).length,0);
-      overview.innerHTML=[`<div class="rounded-xl bg-slate-50 p-3"><b>${students.length}</b><small class="block text-slate-500">Học sinh</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.length}</b><small class="block text-slate-500">Tổng vòng</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.filter(r=>!r.locked).length}</b><small class="block text-slate-500">Vòng đang mở</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${started.length}/${completed.length}</b><small class="block text-slate-500">Đã làm / hoàn thành</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered}</b><small class="block text-slate-500">Câu đã trả lời</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered?Math.round(correct/answered*100):0}%</b><small class="block text-slate-500">Chính xác TB</small></div>`].join("");
+      const started=pairs.flatMap(x=>progressAttempts(x.item).map(attempt=>({x,attempt}))).filter(x=>x.attempt.answers?.length);
+      const completed=started.filter(x=>x.attempt.completedAt);
+      const answered=started.reduce((n,x)=>n+(x.attempt.answers||[]).length,0), correct=started.reduce((n,x)=>n+(x.attempt.answers||[]).filter(a=>a.correct).length,0);
+      overview.innerHTML=[`<div class="rounded-xl bg-slate-50 p-3"><b>${students.length}</b><small class="block text-slate-500">Học sinh</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.length}</b><small class="block text-slate-500">Tổng vòng</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.filter(r=>!r.locked).length}</b><small class="block text-slate-500">Vòng đang mở</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${started.length}/${completed.length}</b><small class="block text-slate-500">Lượt đã làm / hoàn thành</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered}</b><small class="block text-slate-500">Câu đã trả lời</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered?Math.round(correct/answered*100):0}%</b><small class="block text-slate-500">Chính xác TB</small></div>`].join("");
       const sf=document.getElementById("progress-student-filter"),rf=document.getElementById("progress-round-filter"); if(!sf.dataset.ready){sf.innerHTML='<option value="">Tất cả học sinh</option>'+students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");rf.innerHTML='<option value="">Tất cả vòng</option>'+rounds.map(r=>`<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("");sf.dataset.ready="1";[sf,rf,document.getElementById("progress-status-filter"),document.getElementById("progress-sort")].forEach(e=>e.onchange=()=>{progressView.student=sf.value;progressView.round=rf.value;progressView.status=document.getElementById("progress-status-filter").value;progressView.sort=document.getElementById("progress-sort").value;progressView.limit=50;renderProgressTracker();});document.getElementById("progress-load-more").onclick=()=>{progressView.limit+=50;renderProgressTracker();};}
       sf.value=progressView.student;rf.value=progressView.round; const status=progressView.status;
-      const rows=students.map(s=>{const statusKeys={"not-started":"Chưa bắt đầu","in-progress":"Đang làm","completed":"Đã hoàn thành/Đã qua","failed":"Chưa đạt","no-questions":"Chưa có câu hỏi"}; const list=pairs.filter(x=>x.s.id===s.id&&(!progressView.round||String(x.r.id)===progressView.round)&&(!progressView.status||progressStatus(x.item,x.r,x.qs.length).label===statusKeys[progressView.status]));const done=list.filter(x=>x.item?.completedAt).length, used=list.filter(x=>x.item?.answers?.length).length, total=list.length;return {s,list,done,used,total,rate:total?done/total:0};}).filter(x=>!progressView.student||String(x.s.id)===progressView.student).filter(x=>!status||x.list.some(v=>status==="no-questions"&&!v.qs.length||status==="not-started"&&!v.item?.answers?.length&&v.qs.length||status==="in-progress"&&v.item?.answers?.length&&!v.item?.completedAt||status==="completed"&&v.item?.completedAt||status==="failed"&&v.item?.answers?.length&&!v.item?.completedAt)); rows.sort((a,b)=>progressView.sort==="progress"?b.rate-a.rate:progressView.sort==="name"?a.s.name.localeCompare(b.s.name):b.done-a.done);
-      box.innerHTML=rows.slice(0,progressView.limit).map(x=>`<details class="rounded-2xl border-2 border-slate-100 p-4"><summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-2"><div><strong>${escapeHtml(x.s.name)}</strong><span class="ml-2 text-sm text-slate-500">${escapeHtml(x.s.className||x.s.id)}</span></div><span class="text-sm font-black">${x.done}/${x.total} vòng · ⭐ ${x.s.stars||0}</span></div><div class="mt-2 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-400" style="width:${x.total?x.done/x.total*100:0}%"></div></div></summary><div class="mt-3 space-y-2">${x.list.map(v=>{const answers=v.item?.answers||[];const right=answers.filter(a=>a.correct).length;const status=progressStatus(v.item,v.r,v.qs.length);const key=`${v.s.id}:${v.r.id}`;return `<div class="rounded-xl bg-slate-50 p-3 text-sm"><div class="flex flex-wrap justify-between gap-2"><b>Vòng ${escapeHtml(v.r.id)} · ${escapeHtml(v.r.name)}</b><span>${v.r.locked?'🔒 Khóa':'🔓 Mở'} · <span class="${status.tone} font-black">${status.label}</span></span></div><div class="mt-1">${answers.length||0}/${v.qs.length||0} câu · đúng ${right} · sai ${Math.max(0,answers.length-right)} · chính xác ${answers.length?Math.round(right/answers.length*100):0}% · điểm ${v.item?.score??'Chưa có dữ liệu'}</div><button type="button" data-progress-detail="${key}" class="mt-2 rounded-lg bg-white px-3 py-1 font-black text-blue-700">${progressView.detailOpen.has(key)?'Đóng':'Xem câu đúng/sai'}</button><div data-progress-answers="${key}" class="${progressView.detailOpen.has(key)?'mt-3':'hidden'}"></div></div>`;}).join("")}</div></details>`).join("")||'<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có dữ liệu phù hợp.</p>';
+      const statusKeys={"not-started":"Chưa bắt đầu","in-progress":"Đang làm","completed":"Đã hoàn thành/Đã qua","failed":"Chưa đạt","no-questions":"Chưa có câu hỏi"};
+      const rows=students.map(s=>{const list=pairs.filter(x=>x.s.id===s.id&&(!progressView.round||String(x.r.id)===progressView.round)).map(x=>({...x,attempts:progressAttempts(x.item)}));const matching=list.flatMap(x=>x.attempts.map(attempt=>({x,attempt}))).filter(v=>!progressView.status||progressStatus(v.attempt,v.x.r,v.x.qs.length).label===statusKeys[progressView.status]);const done=matching.filter(v=>v.attempt.completedAt).length, used=matching.filter(v=>v.attempt.answers?.length).length, total=matching.length;return {s,list,matching,done,used,total,rate:total?done/total:0};}).filter(x=>!progressView.student||String(x.s.id)===progressView.student).filter(x=>!status||x.matching.length); rows.sort((a,b)=>progressView.sort==="progress"?b.rate-a.rate:progressView.sort==="name"?a.s.name.localeCompare(b.s.name):b.done-a.done);
+      box.innerHTML=rows.slice(0,progressView.limit).map(x=>`<details class="rounded-2xl border-2 border-slate-100 p-4"><summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-2"><div><strong>${escapeHtml(x.s.name)}</strong><span class="ml-2 text-sm text-slate-500">${escapeHtml(x.s.className||x.s.id)}</span></div><span class="text-sm font-black">${x.done}/${x.total} lượt hoàn thành · ⭐ ${x.s.stars||0}</span></div><div class="mt-2 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-400" style="width:${x.total?x.done/x.total*100:0}%"></div></div></summary><div class="mt-3 space-y-2">${x.list.map(v=>{const attempts=v.attempts.filter(attempt=>!status||progressStatus(attempt,v.r,v.qs.length).label===statusKeys[status]);if(!attempts.length)return "";return `<div class="rounded-xl bg-slate-50 p-3 text-sm"><div class="font-black mb-2">Vòng ${escapeHtml(v.r.id)} · ${escapeHtml(v.r.name)}</div><div class="space-y-2">${attempts.map((attempt,attemptIndex)=>{const answers=attempt.answers||[];const right=answers.filter(a=>a.correct).length;const statusInfo=progressStatus(attempt,v.r,v.qs.length);const key=`${v.s.id}:${v.r.id}:${attempt.id}`;return `<div class="rounded-lg bg-white p-3"><div class="flex flex-wrap justify-between gap-2"><b>Lượt ${attemptIndex+1}</b><span>${v.r.locked?'🔒 Khóa':'🔓 Mở'} · <span class="${statusInfo.tone} font-black">${statusInfo.label}</span></span></div><div class="mt-1">${answers.length||0}/${v.qs.length||0} câu · đúng ${right} · sai ${Math.max(0,answers.length-right)} · chính xác ${answers.length?Math.round(right/answers.length*100):0}% · điểm ${attempt.score??'Chưa có dữ liệu'}</div><div class="mt-1 text-xs text-slate-500">Bắt đầu: ${escapeHtml(attempt.startedAt||'Chưa có dữ liệu')}${attempt.completedAt?` · Hoàn thành: ${escapeHtml(attempt.completedAt)}`:""}</div><button type="button" data-progress-detail="${escapeHtml(key)}" class="mt-2 rounded-lg bg-slate-50 px-3 py-1 font-black text-blue-700">${progressView.detailOpen.has(key)?'Đóng':'Xem câu đúng/sai'}</button><div data-progress-answers="${escapeHtml(key)}" class="${progressView.detailOpen.has(key)?'mt-3':'hidden'}"></div></div>`;}).join("")}</div></div>`;}).join("")}</div></details>`).join("")||'<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có dữ liệu phù hợp.</p>';
       const more=document.getElementById("progress-load-more");more.classList.toggle("hidden",rows.length<=progressView.limit);more.textContent=`Tải thêm · đang hiển thị ${Math.min(progressView.limit,rows.length)}/${rows.length}`;
     }
     document.getElementById("progress-tracker-list").addEventListener("click", event => {
       const button = event.target.closest("[data-progress-detail]");
       if (!button) return;
       const key = button.dataset.progressDetail;
-      const [studentId, roundId] = key.split(":");
+      const parts = key.split(":");
+      const studentId = parts.shift();
+      const roundId = parts.shift();
+      const attemptId = parts.join(":");
       const student = students.find(s => String(s.id) === String(studentId));
       const round = rounds.find(r => String(r.id) === String(roundId));
       const item = student && round ? progressHistory[progressKey(student.id, round.id)] : null;
-      if (!student || !round) return;
+      const attempt = progressAttempts(item).find(a => String(a.id) === String(attemptId));
+      if (!student || !round || !attempt) return;
       if (progressView.detailOpen.has(key)) progressView.detailOpen.delete(key); else progressView.detailOpen.add(key);
       renderProgressTracker();
       if (progressView.detailOpen.has(key)) {
         const host = document.querySelector(`[data-progress-answers="${CSS.escape(key)}"]`);
-        if (host) renderProgressAnswers(student, round, item, host);
+        if (host) renderProgressAnswers(student, round, attempt, host);
       }
     });
     document.getElementById("settings-form").addEventListener("submit", async event => {

@@ -61,7 +61,7 @@
       }
 
       async function readRows() {
-        const url = `${base}?data_key=eq.shared-app-data&select=data_key,data_type,data_value,revision,updated_at`;
+        const url = `${base}?data_key=eq.shared-app-data-draft&select=data_key,data_type,data_value,revision,updated_at`;
         const response = await fetch(url, { headers: headers(), cache: "no-store" });
         if (!response.ok) throw new Error(`Supabase read ${response.status}`);
         const rows = await response.json();

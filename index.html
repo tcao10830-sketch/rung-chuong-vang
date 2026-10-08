@@ -1139,16 +1139,21 @@
         : !roundClassId;
     }
 
+    function getRoundQuestionCount(roundId) {
+      return questions.filter(q => String(q.round) === String(roundId)).length;
+    }
     function getRoundStars(student, roundId) {
       if (!student || student.id === "guest") return 0;
+      const maxStars = getRoundQuestionCount(roundId);
+      if (!maxStars) return 0;
       const saved = Number(student.roundStars?.[String(roundId)]);
-      if (Number.isFinite(saved) && saved >= 0) return saved;
+      if (Number.isFinite(saved) && saved >= 0) return Math.min(maxStars,saved);
       const item = progressHistory[progressKey(student.id,roundId)];
-      return progressAttempts(item).reduce((total,attempt) => {
+      return Math.min(maxStars,progressAttempts(item).reduce((total,attempt) => {
         if (!attempt.completedAt) return total;
         const correct = (attempt.answers || []).filter(answer => answer.correct).length;
-        return total + Math.max(1,correct);
-      },0);
+        return total + correct;
+      },0));
     }
 
     function renderStudentProgress(student, visibleRounds) {
@@ -1170,7 +1175,7 @@
         const attempts = progressAttempts(item);
         const completedAttempts = attempts.filter(attempt => attempt.completedAt);
         const answered = attempts.reduce((n,attempt) => n + (attempt.answers || []).length,0);
-        const qsCount = questions.filter(q => String(q.round) === String(round.id)).length;
+        const qsCount = getRoundQuestionCount(round.id);
         const bestCorrect = attempts.reduce((best,attempt) => Math.max(best,(attempt.answers || []).filter(answer => answer.correct).length),0);
         const roundStars = getRoundStars(student,round.id);
         const progress = qsCount ? Math.min(100,Math.round(bestCorrect / qsCount * 100)) : 0;
@@ -1363,12 +1368,16 @@
         const attempt = progressAttempts(item).find(a => String(a.id) === String(currentAttemptId));
         const wasAlreadyCompleted = Boolean(attempt?.completedAt);
         if (attempt && !wasAlreadyCompleted) {
-          const earnedStars = Math.max(1,Math.round(score/100));
+          const roundKey = String(currentRound);
+          const maxRoundStars = getRoundQuestionCount(currentRound);
+          const currentRoundStars = getRoundStars(activeStudent,currentRound);
+          const correctThisAttempt = (attempt.answers || []).filter(answer => answer.correct).length;
+          const remainingStars = Math.max(0,maxRoundStars - currentRoundStars);
+          const earnedStars = Math.min(correctThisAttempt,remainingStars);
           earnedStarsThisRound = earnedStars;
           activeStudent.stars = (activeStudent.stars || 0) + earnedStars;
           activeStudent.roundStars = {...(activeStudent.roundStars || {})};
-          const roundKey = String(currentRound);
-          activeStudent.roundStars[roundKey] = Number(activeStudent.roundStars[roundKey] || 0) + earnedStars;
+          activeStudent.roundStars[roundKey] = Math.min(maxRoundStars,currentRoundStars + earnedStars);
           activeStudent.completed = Math.max(activeStudent.completed || 0,Math.min(rounds.length,currentRound));
           attempt.completedAt = now();
           touchEntity(attempt);

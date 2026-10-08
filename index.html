@@ -40,6 +40,7 @@
   <script>
     window.SUPABASE_URL = "https://pbchoimebndxlusgpapo.supabase.co";
     window.SUPABASE_PUBLISHABLE_KEY = "sb_publishable_14ZYxXHBQp68hDZ6kZ58ig_h7cy65E3";
+    window.SUPABASE_DATA_KEY = "shared-app-data-draft";
     window.dataSdk = (() => {
       const base = `${window.SUPABASE_URL}/rest/v1/shared_app_state`;
       const headers = () => ({
@@ -61,7 +62,8 @@
       }
 
       async function readRows() {
-        const url = `${base}?data_key=eq.shared-app-data&select=data_key,data_type,data_value,revision,updated_at`;
+        const dataKey = encodeURIComponent(window.SUPABASE_DATA_KEY || "shared-app-data");
+        const url = `${base}?data_key=eq.${dataKey}&select=data_key,data_type,data_value,revision,updated_at`;
         const response = await fetch(url, { headers: headers(), cache: "no-store" });
         if (!response.ok) throw new Error(`Supabase read ${response.status}`);
         const rows = await response.json();
@@ -390,8 +392,8 @@
    <div id="toast" class="toast fixed bottom-5 left-1/2 z-[60] rounded-full bg-slate-900 px-5 py-3 text-white font-extrabold shadow-xl" role="status"></div>
   </div>
   <script>
-    const CACHE_KEY = "rung-chuong-vang-shared-cache-v19";
-    const SHARED_KEY = "shared-app-data";
+    const CACHE_KEY = "rung-chuong-vang-shared-cache-v19-draft";
+    const SHARED_KEY = "shared-app-data-draft";
     const DATA_TYPE = "shared_app_state";
     const sampleQuestions = [
       {id:1,round:1,q:"Thủ đô của Việt Nam là thành phố nào?",options:["Hà Nội","Huế","Đà Nẵng","Cần Thơ"],correct:0},
@@ -422,9 +424,10 @@
     }
     const defaultShared = () => ({
       version:19,
-      schemaVersion:1,
+      schemaVersion:4,
       revision:1,
       updatedAt:new Date().toISOString(),
+      classes:[],
       students:[],
       deletedStudents:defaultDeletedStudents(),
       rounds:[
@@ -439,7 +442,7 @@
     });
 
     let shared = defaultShared();
-    let students = shared.students, rounds = shared.rounds, questions = shared.questions, settings = shared.settings, teacherSecurity = shared.teacherSecurity, progressHistory = shared.progressHistory;
+    let classes = shared.classes, students = shared.students, rounds = shared.rounds, questions = shared.questions, settings = shared.settings, teacherSecurity = shared.teacherSecurity, progressHistory = shared.progressHistory;
     let backendRecords = [];
     let sharedRecord = null;
     let dataReady = false;
@@ -470,9 +473,19 @@
     function now() { return new Date().toISOString(); }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&gt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char])); }
     function normalizeRoundLocks() { rounds.forEach(r => { if (typeof r.locked !== "boolean") r.locked = true; if (!r.updatedAt) r.updatedAt = shared.updatedAt || now(); }); }
+    function normalizeClasses(list) {
+      return (Array.isArray(list) ? list : []).filter(item => item && item.id != null && String(item.name || "").trim()).map(item => ({
+        ...item,
+        id:String(item.id),
+        name:String(item.name).trim(),
+        updatedAt:item.updatedAt || now()
+      }));
+    }
     function bindShared() {
+      shared.classes = normalizeClasses(shared.classes);
       shared.deletedStudents = {...defaultDeletedStudents(), ...(shared.deletedStudents || {})};
       shared.students = cleanStudents(shared.students);
+      classes = shared.classes || [];
       students = shared.students || [];
       rounds = shared.rounds || [];
       questions = shared.questions || [];
@@ -589,9 +602,10 @@
       if (!remote) return local;
       const result = {
         version:19,
-        schemaVersion:1,
+        schemaVersion:4,
         revision:Math.max(Number(local.revision || 0), Number(remote.revision || 0)),
         updatedAt:updatedValue(local) >= updatedValue(remote) ? local.updatedAt : remote.updatedAt,
+        classes:mergeById(normalizeClasses(local.classes), normalizeClasses(remote.classes)),
         students:mergeStudents(local.students, remote.students, local.deletedStudents, remote.deletedStudents),
         deletedStudents:mergeDeletedStudents(local.deletedStudents, remote.deletedStudents),
         rounds:mergeById(local.rounds, remote.rounds),
@@ -611,12 +625,13 @@
     }
     function buildSnapshot() {
       return JSON.stringify({
-        version:18,
-        schemaVersion:3,
+        version:19,
+        schemaVersion:4,
         migrationCompleted:Boolean(migrationCompleted),
         revision:shared.revision,
         updatedAt:shared.updatedAt,
         source:{key:SHARED_KEY,kind:"canva-sheet"},
+        classes:normalizeClasses(shared.classes),
         students:cleanStudents(students), deletedStudents:shared.deletedStudents || defaultDeletedStudents(), rounds, questions, settings, teacherSecurity, progressHistory
       });
     }
@@ -658,6 +673,7 @@
           lastConfirmedRevision = Math.max(lastConfirmedRevision, remoteRevision);
           // Remote is canonical on startup; only an explicit pending mutation may merge into it.
           const incomingShared = {...remote, schemaVersion:Number(remote.schemaVersion || 1)};
+          incomingShared.classes = normalizeClasses(incomingShared.classes);
           const hadDeletedSamples = Array.isArray(incomingShared.students) && incomingShared.students.some(isDeletedSampleStudent);
           shared = pendingLocalMutation && outbox?.snapshot ? mergeSharedData(incomingShared, outbox.snapshot) : incomingShared;
           shared.schemaVersion = Math.max(Number(shared.schemaVersion || 1), Number(incomingShared.schemaVersion || 1));
@@ -1450,6 +1466,7 @@
           updatedAt:shared?.updatedAt || now(),
           source:{key:SHARED_KEY,kind:confirmedCloud ? "canva-sheet-confirmed" : "local-cache-not-confirmed"},
           syncStatus:confirmedCloud ? "confirmed-cloud" : "cache-not-confirmed",
+          classes:normalizeClasses(shared?.classes),
           students:(Array.isArray(students) ? students : []).map(sanitizeStudent),
           deletedStudents:shared?.deletedStudents || defaultDeletedStudents(),
           rounds:Array.isArray(rounds) ? rounds : [],
@@ -1483,12 +1500,13 @@
           const data = JSON.parse(reader.result);
           if (!Array.isArray(data.students) || !Array.isArray(data.rounds) || !Array.isArray(data.questions)) throw new Error("invalid");
           const stamp = now();
+          const restoredClasses = normalizeClasses(data.classes);
           students = cleanStudents(data.students).map(s => touchEntity({...s,updatedAt:stamp}));
           rounds = data.rounds.map(r => touchEntity({...r,locked:typeof r.locked === "boolean" ? r.locked : true,updatedAt:stamp}));
           questions = data.questions.map(q => touchEntity({...q,updatedAt:stamp}));
           settings = touchEntity({...settings,...(data.settings || {}),updatedAt:stamp});
           progressHistory = {};
-          shared = {...shared,students,rounds,questions,settings,progressHistory,updatedAt:stamp};
+          shared = {...shared,classes:restoredClasses,students,rounds,questions,settings,progressHistory,updatedAt:stamp,schemaVersion:4};
           markSharedChanged(); await persistShared(true);
           renderProfiles(); openTeacherTab("questions"); toast("Đã khôi phục và đồng bộ dữ liệu.");
         } catch { toast("Tệp sao lưu không hợp lệ."); }

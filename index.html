@@ -21,8 +21,19 @@
     .profile-card:hover { transform:translateY(-5px); border-color:var(--yellow); }
     .choice { border:3px solid #e7eefc; transition:.18s; }
     .choice:hover:not(:disabled) { border-color:#4f87ff; transform:translateX(4px); }
-    .choice.correct { background:#dcfce7; border-color:#38c98b; }
-    .choice.wrong { background:#ffe1e4; border-color:#ef5b68; }
+    .choice.correct { background:#dcfce7; border-color:#38c98b; animation:correctPop .42s ease both; }
+    .choice.wrong { background:#ffe1e4; border-color:#ef5b68; animation:wrongShake .42s ease both; }
+    .reward-fx-layer { position:fixed; inset:0; z-index:80; pointer-events:none; overflow:hidden; }
+    .reward-fx { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); font-family:"Nunito",sans-serif; font-weight:900; text-align:center; white-space:nowrap; animation:rewardPop .9s ease both; filter:drop-shadow(0 8px 14px rgba(36,48,74,.16)); }
+    .reward-fx .reward-main { font-size:clamp(2rem,7vw,4rem); line-height:1; }
+    .reward-fx .reward-sub { margin-top:.45rem; font-size:clamp(1rem,3vw,1.4rem); color:#475569; }
+    .reward-spark { position:absolute; left:50%; top:42%; font-size:1.8rem; animation:sparkFly .75s ease-out both; }
+    .reward-combo { position:absolute; right:1.2rem; top:6rem; padding:.65rem 1rem; border-radius:999px; background:#fff7cc; border:2px solid #ffd84d; color:#9a6700; font-weight:900; animation:comboPop .7s ease both; box-shadow:0 8px 24px rgba(36,48,74,.12); }
+    @keyframes correctPop { 0%{transform:scale(.98)} 55%{transform:scale(1.025)} 100%{transform:scale(1)} }
+    @keyframes wrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 50%{transform:translateX(7px)} 75%{transform:translateX(-4px)} }
+    @keyframes rewardPop { 0%{opacity:0;transform:translate(-50%,-35%) scale(.65)} 18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)} 72%{opacity:1;transform:translate(-50%,-58%) scale(1)} 100%{opacity:0;transform:translate(-50%,-78%) scale(.92)} }
+    @keyframes sparkFly { 0%{opacity:0;transform:translate(-50%,-50%) scale(.4)} 20%{opacity:1} 100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(24deg) scale(1.1)} }
+    @keyframes comboPop { 0%{opacity:0;transform:translateY(-12px) scale(.8)} 25%{opacity:1;transform:translateY(0) scale(1.05)} 100%{opacity:0;transform:translateY(-8px) scale(1)} }
     .teacher-tab.active { background:#172554; color:#fff; }
     .toast { opacity:0; transform:translateY(12px) translateX(-50%); pointer-events:none; transition:.25s; }
     .toast.show { opacity:1; transform:translateY(0) translateX(-50%); }
@@ -40,6 +51,7 @@
   <script>
     window.SUPABASE_URL = "https://pbchoimebndxlusgpapo.supabase.co";
     window.SUPABASE_PUBLISHABLE_KEY = "sb_publishable_14ZYxXHBQp68hDZ6kZ58ig_h7cy65E3";
+    window.SUPABASE_DATA_KEY = "shared-app-data-draft";
     window.dataSdk = (() => {
       const base = `${window.SUPABASE_URL}/rest/v1/shared_app_state`;
       const headers = () => ({
@@ -61,7 +73,8 @@
       }
 
       async function readRows() {
-        const url = `${base}?data_key=eq.shared-app-data&select=data_key,data_type,data_value,revision,updated_at`;
+        const dataKey = encodeURIComponent(window.SUPABASE_DATA_KEY || "shared-app-data");
+        const url = `${base}?data_key=eq.${dataKey}&select=data_key,data_type,data_value,revision,updated_at`;
         const response = await fetch(url, { headers: headers(), cache: "no-store" });
         if (!response.ok) throw new Error(`Supabase read ${response.status}`);
         const rows = await response.json();
@@ -223,6 +236,19 @@
        <p data-template-id="map-description" class="canva-text font-bold text-slate-500" style="color: rgb(100, 116, 139); font-weight: 700; font-style: normal; font-size: 16px;">Hoàn thành vòng trước để mở khóa thử thách mới.</p>
        <div id="round-map" class="relative mt-5 soft-card p-7 grid sm:grid-cols-3 gap-5"></div>
       </section>
+      <section class="mt-9">
+       <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+         <h2 class="fun-title text-3xl">Tiến độ của em</h2>
+         <p class="font-bold text-slate-500">Mỗi vòng hoàn thành sẽ giúp em tích thêm sao. Cố gắng thu thập thật nhiều nhé!</p>
+        </div>
+        <div class="rounded-2xl bg-yellow-50 border-2 border-yellow-200 px-5 py-3 text-center">
+         <span class="block text-xs font-extrabold text-yellow-700">TỔNG SAO</span>
+         <strong id="student-progress-total-stars" class="block text-2xl font-black text-yellow-700">0 ⭐</strong>
+        </div>
+       </div>
+       <div id="student-progress-list" class="grid gap-3"></div>
+      </section>
      </div>
     </section>
     <section id="quiz-screen" class="screen">
@@ -278,29 +304,19 @@
         <div>
          <p data-template-id="teacher-kicker" class="canva-text text-yellow-300 font-black" style="color: rgb(253, 224, 71); font-weight: 900; font-style: normal; font-size: 16px;">KHU VỰC GIÁO VIÊN</p>
          <h1 data-template-id="teacher-title" class="canva-text fun-title text-4xl mt-1" style="color: rgb(255, 255, 255); font-weight: 400; font-style: normal; font-size: 32px;">Trung tâm điều khiển lớp học</h1>
-         <p data-template-id="teacher-copy" class="canva-text text-slate-300 font-semibold mt-2" style="color: rgb(203, 213, 225); font-weight: 600; font-style: normal; font-size: 16px;">Tạo nội dung, điều chỉnh vòng chơi và quản lý hồ sơ học sinh an toàn trên các thiết bị.</p><p class="mt-2 text-xs font-bold text-slate-400">☁️ Dữ liệu chữ + link media được lưu trong nguồn dùng chung; mở cùng website trên PC và điện thoại sẽ nhận cùng một bộ dữ liệu.</p>
+         <p data-template-id="teacher-copy" class="canva-text text-slate-300 font-semibold mt-2" style="color: rgb(203, 213, 225); font-weight: 600; font-style: normal; font-size: 16px;">Tạo nội dung, điều chỉnh vòng chơi và quản lý hồ sơ học sinh an toàn trên các thiết bị.</p>
          <div class="mt-3 flex flex-wrap gap-2 items-center"><span id="save-status" class="text-xs font-extrabold text-slate-300" aria-live="polite">Đang đồng bộ…</span> <button id="sync-retry-button" type="button" class="hidden rounded-lg bg-rose-100 px-2 py-1 text-xs font-black text-rose-700" onclick="refreshSharedData()">Thử đồng bộ lại</button> <button type="button" class="rounded-lg bg-white/10 px-2 py-1 text-xs font-black" onclick="refreshSharedData()">Làm mới dữ liệu</button>
          </div>
         </div><button type="button" data-template-id="teacher-logout-button" class="canva-button rounded-xl bg-white/15 px-4 py-2 font-extrabold" onclick="logoutTeacher()" style="background: rgba(255, 255, 255, 0.15); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Đăng xuất</button>
        </div>
       </div>
-      <nav class="flex overflow-x-auto gap-2 mt-5 pb-2" aria-label="Khu vực giáo viên"><button type="button" data-template-id="tab-questions" class="canva-button teacher-tab active rounded-xl px-4 py-3 font-extrabold whitespace-nowrap" onclick="openTeacherTab('questions')" style="background: rgb(23, 37, 84); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Ngân hàng câu hỏi</button> <button type="button" data-template-id="tab-rounds" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('rounds')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Quản lý vòng</button> <button type="button" data-template-id="tab-students" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('students')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Hồ sơ học sinh</button> <button type="button" data-template-id="tab-settings" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('settings')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Cài đặt</button> <button type="button" data-template-id="tab-backup" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('backup')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Sao lưu</button>
+      <nav class="flex overflow-x-auto gap-2 mt-5 pb-2" aria-label="Khu vực giáo viên"><button type="button" data-template-id="tab-questions" class="canva-button teacher-tab active rounded-xl px-4 py-3 font-extrabold whitespace-nowrap" onclick="openTeacherTab('questions')" style="background: rgb(23, 37, 84); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Ngân hàng câu hỏi</button> <button type="button" data-template-id="tab-rounds" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('rounds')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Quản lý vòng</button> <button type="button" data-template-id="tab-students" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('students')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Hồ sơ học sinh</button> <button type="button" data-template-id="tab-classes" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('classes')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Quản lý lớp</button> <button type="button" data-template-id="tab-settings" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('settings')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Cài đặt</button> <button type="button" data-template-id="tab-backup" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('backup')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Sao lưu</button>
       </nav>
       <div id="teacher-questions" class="teacher-panel mt-5">
        <div class="grid lg:grid-cols-[.9fr_1.1fr] gap-5">
         <form id="question-form" class="soft-card p-6">
          <h2 data-template-id="question-form-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Thêm câu hỏi</h2><label data-template-id="question-round-label" class="canva-text block font-extrabold mt-4" for="question-round" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Thuộc vòng chơi</label> <select id="question-round" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select> <label data-template-id="question-input-label" class="canva-text block font-extrabold mt-4" for="question-input" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Nội dung câu hỏi</label> <textarea id="question-input" required="" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3" rows="3"></textarea>
          <div id="option-inputs" class="grid grid-cols-2 gap-3 mt-4"></div>
-         <div class="mt-4 rounded-2xl bg-blue-50 p-4">
-          <p class="font-black text-blue-800">🎬 Nội dung đa phương tiện (không bắt buộc)</p>
-          <p class="text-sm font-semibold text-slate-500 mt-1">Dán link công khai của ảnh, audio hoặc video. Link được lưu cùng câu hỏi nên khi mở bằng máy tính/điện thoại, cả hai thiết bị sẽ dùng cùng dữ liệu.</p>
-          <label class="block font-extrabold mt-3" for="question-image-url">Ảnh minh họa</label>
-          <input id="question-image-url" type="url" placeholder="https://..." class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
-          <label class="block font-extrabold mt-3" for="question-audio-url">Audio phát âm</label>
-          <input id="question-audio-url" type="url" placeholder="https://...mp3" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
-          <label class="block font-extrabold mt-3" for="question-video-url">Video</label>
-          <input id="question-video-url" type="url" placeholder="https://...mp4" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
-         </div>
          <label data-template-id="correct-answer-label" class="canva-text block font-extrabold mt-4" for="correct-answer" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Đáp án đúng</label> <select id="correct-answer" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"> <option value="0">Đáp án A</option><option value="1">Đáp án B</option><option value="2">Đáp án C</option><option value="3">Đáp án D</option> </select> <button type="submit" data-template-id="save-question-button" class="canva-button action mt-5 rounded-xl px-5 py-3 font-black" style="background: rgb(79, 135, 255); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">Lưu câu hỏi</button> <button type="button" data-template-id="bulk-import-button" class="canva-button mt-3 w-full rounded-xl bg-orange-100 px-5 py-3 font-black text-orange-700" onclick="openBulkImportModal()" style="background: rgb(255, 237, 213); color: rgb(194, 65, 12); font-weight: 900; font-style: normal; font-size: 16px;">NHẬP NHANH NHIỀU CÂU HỎI</button>
         </form>
         <section class="soft-card p-6">
@@ -315,19 +331,26 @@
       </div>
       <div id="teacher-rounds" class="teacher-panel hidden mt-5">
        <section class="soft-card p-6">
-        <div class="flex justify-between gap-3 items-start">
+        <div class="flex flex-col lg:flex-row lg:justify-between gap-4 items-start">
          <div>
           <h2 data-template-id="rounds-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Quản lý vòng chơi</h2>
-          <p data-template-id="rounds-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Theo dõi các vòng chơi, tên hiển thị và trạng thái khóa/mở dùng chung.</p>
-         </div><button type="button" data-template-id="new-round-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black" onclick="newRound()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm vòng</button>
+          <p data-template-id="rounds-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Các vòng được nhóm theo lớp để dễ theo dõi và quản lý.</p>
+         </div>
+         <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+          <label class="sr-only" for="round-class-filter">Lọc vòng theo lớp</label>
+          <select id="round-class-filter" class="w-full sm:w-56 rounded-xl border-2 border-slate-200 p-3 font-bold bg-white">
+           <option value="">Tất cả lớp</option>
+          </select>
+          <button type="button" data-template-id="new-round-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black whitespace-nowrap" onclick="newRound()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm vòng</button>
+         </div>
         </div>
-        <div id="round-editor" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-5"></div>
+        <div id="round-editor" class="mt-5 space-y-6"></div>
        </section>
       </div>
       <div id="teacher-students" class="teacher-panel hidden mt-5">
        <div class="grid lg:grid-cols-[.8fr_1.2fr] gap-5">
         <form id="student-form" class="soft-card p-6">
-         <h2 data-template-id="student-form-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Tạo hồ sơ học sinh</h2><label data-template-id="student-name-label" class="canva-text block font-extrabold mt-4" for="student-name" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Tên học sinh</label> <input id="student-name" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-class-label" class="canva-text block font-extrabold mt-4" for="student-class" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Lớp</label> <input id="student-class" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-password-label" class="canva-text block font-extrabold mt-4" for="student-password" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Mật khẩu hồ sơ</label> <input id="student-password" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-password-confirm-label" class="canva-text block font-extrabold mt-4" for="student-password-confirm" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Xác nhận mật khẩu</label> <input id="student-password-confirm" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <button type="submit" data-template-id="add-student-button" class="canva-button action rounded-xl px-5 py-3 font-black mt-5" style="background: rgb(79, 135, 255); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">Thêm hồ sơ</button>
+         <h2 data-template-id="student-form-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Tạo hồ sơ học sinh</h2><label data-template-id="student-name-label" class="canva-text block font-extrabold mt-4" for="student-name" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Tên học sinh</label> <input id="student-name" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-class-label" class="canva-text block font-extrabold mt-4" for="student-class" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Lớp</label> <select id="student-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chọn lớp</option></select> <p class="text-xs font-bold text-slate-500 mt-2">Lớp được chọn sẽ được lưu bằng classId. Thông tin className cũ vẫn được giữ để tương thích dữ liệu.</p> <label data-template-id="student-password-label" class="canva-text block font-extrabold mt-4" for="student-password" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Mật khẩu hồ sơ</label> <input id="student-password" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-password-confirm-label" class="canva-text block font-extrabold mt-4" for="student-password-confirm" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Xác nhận mật khẩu</label> <input id="student-password-confirm" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <button type="submit" data-template-id="add-student-button" class="canva-button action rounded-xl px-5 py-3 font-black mt-5" style="background: rgb(79, 135, 255); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">Thêm hồ sơ</button>
         </form>
         <section class="soft-card p-6">
          <h2 data-template-id="student-list-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Danh sách học sinh</h2>
@@ -342,6 +365,18 @@
          <label class="sr-only" for="progress-student-filter">Lọc học sinh</label><select id="progress-student-filter" class="rounded-xl border-2 border-slate-200 p-3"><option value="">Tất cả học sinh</option></select> <label class="sr-only" for="progress-round-filter">Lọc vòng</label><select id="progress-round-filter" class="rounded-xl border-2 border-slate-200 p-3"><option value="">Tất cả vòng</option></select> <label class="sr-only" for="progress-status-filter">Lọc trạng thái</label><select id="progress-status-filter" class="rounded-xl border-2 border-slate-200 p-3"><option value="">Mọi trạng thái</option><option value="not-started">Chưa bắt đầu</option><option value="in-progress">Đang làm</option><option value="completed">Đã hoàn thành/Đã qua</option><option value="failed">Chưa đạt</option><option value="no-questions">Chưa có câu hỏi</option></select> <label class="sr-only" for="progress-sort">Sắp xếp tiến độ</label><select id="progress-sort" class="rounded-xl border-2 border-slate-200 p-3"><option value="name">Theo tên</option><option value="progress">Theo tiến độ</option><option value="accuracy">Theo chính xác</option><option value="score">Theo điểm</option><option value="recent">Lần làm gần nhất</option></select> <button type="button" class="rounded-xl bg-slate-100 px-4 py-3 font-black" onclick="refreshSharedData()">Làm mới</button>
         </div>
         <div id="progress-tracker-list" class="mt-4 space-y-2"></div><button id="progress-load-more" type="button" class="hidden mt-4 w-full rounded-xl bg-blue-50 px-4 py-3 font-black text-blue-700">Tải thêm</button>
+       </section>
+      </div>
+      <div id="teacher-classes" class="teacher-panel hidden mt-5">
+       <section class="soft-card p-6">
+        <div class="flex flex-wrap justify-between gap-3 items-start">
+         <div>
+          <h2 data-template-id="classes-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Quản lý lớp học</h2>
+          <p data-template-id="classes-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Tạo và quản lý danh sách lớp. Học sinh có thể được gán vào lớp từ mục Hồ sơ học sinh.</p>
+         </div>
+         <button type="button" data-template-id="new-class-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black" onclick="newClass()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm lớp</button>
+        </div>
+        <div id="class-editor" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-5"></div>
        </section>
       </div>
       <div id="teacher-settings" class="teacher-panel hidden mt-5">
@@ -374,13 +409,34 @@
        <h2 data-template-id="bulk-import-title" class="canva-text fun-title text-3xl mt-1" style="color: rgb(36, 48, 74); font-weight: 400; font-style: normal; font-size: 24px;">Nhập nhanh nhiều câu hỏi</h2>
       </div><button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" onclick="closeBulkImportModal()" aria-label="Đóng">×</button>
      </div>
-     <p data-template-id="bulk-import-instructions" class="canva-text font-semibold text-slate-500 mt-3" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Mỗi dòng: từ | nghĩa | nội dung câu hỏi | đáp án đúng | lựa chọn 1; lựa chọn 2; ... | độ khó | giải thích | vòng | ảnh URL | audio URL | video URL. Có thể bỏ các trường cuối.</p><label data-template-id="bulk-import-round-label" class="canva-text block font-extrabold mt-4" for="bulk-import-round" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Vòng mặc định</label><select id="bulk-import-round" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select> <label data-template-id="bulk-import-input-label" class="canva-text block font-extrabold mt-4" for="bulk-import-input" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Dữ liệu câu hỏi</label><textarea id="bulk-import-input" rows="9" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3 font-mono text-sm" placeholder="Từ | Nghĩa | Câu hỏi | Đáp án đúng | Lựa chọn 1; Lựa chọn 2 | DỄ | Giải thích | 1 | https://...jpg | https://...mp3 | https://...mp4"></textarea>
+     <p data-template-id="bulk-import-instructions" class="canva-text font-semibold text-slate-500 mt-3" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Mỗi dòng: từ | nghĩa | nội dung câu hỏi | đáp án đúng | lựa chọn 1; lựa chọn 2; ... | độ khó | giải thích | vòng | ảnh URL | audio URL | video URL. Có thể bỏ các trường cuối.</p><label data-template-id="bulk-import-class-label" class="canva-text block font-extrabold mt-4" for="bulk-import-class" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Lớp</label><select id="bulk-import-class" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select><label data-template-id="bulk-import-round-label" class="canva-text block font-extrabold mt-4" for="bulk-import-round" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Vòng mặc định</label><select id="bulk-import-round" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select> <label data-template-id="bulk-import-input-label" class="canva-text block font-extrabold mt-4" for="bulk-import-input" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Dữ liệu câu hỏi</label><textarea id="bulk-import-input" rows="9" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3 font-mono text-sm" placeholder="Từ | Nghĩa | Câu hỏi | Đáp án đúng | Lựa chọn 1; Lựa chọn 2 | DỄ | Giải thích | 1 | https://...jpg | https://...mp3 | https://...mp4"></textarea>
      <div class="flex flex-wrap gap-3 mt-4">
       <button type="button" data-template-id="bulk-preview-button" class="canva-button action rounded-xl bg-blue-100 px-5 py-3 font-black text-blue-700" onclick="previewBulkImport()" style="background: rgb(219, 234, 254); color: rgb(29, 78, 216); font-weight: 900; font-style: normal; font-size: 16px;">XEM TRƯỚC</button><button type="button" id="bulk-save-button" data-template-id="bulk-save-button" class="canva-button action rounded-xl bg-emerald-500 px-5 py-3 font-black text-white" onclick="saveBulkImport()" disabled="" style="background: rgb(16, 185, 129); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">LƯU HÀNG LOẠT</button>
      </div>
      <div id="bulk-import-result" class="mt-5 space-y-2" aria-live="polite"></div>
     </div>
    </div>
+   <div id="new-round-modal" class="modal fixed inset-0 z-50 items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="new-round-title">
+     <div class="soft-card w-full max-w-md p-6 md:p-8">
+      <div class="flex justify-between gap-4 items-start">
+       <div>
+        <p class="text-sm font-black text-orange-500">QUẢN LÝ VÒNG</p>
+        <h2 id="new-round-title" class="fun-title text-3xl mt-1">Thêm vòng mới</h2>
+       </div>
+       <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" onclick="closeNewRoundModal()" aria-label="Đóng">×</button>
+      </div>
+      <form id="new-round-form" class="mt-5">
+       <label class="block font-extrabold" for="new-round-class">Lớp</label>
+       <select id="new-round-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
+       <label class="block font-extrabold mt-4" for="new-round-name">Tên vòng</label>
+       <input id="new-round-name" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
+       <div class="flex flex-wrap gap-3 mt-5">
+        <button type="button" class="rounded-xl bg-slate-100 px-5 py-3 font-black" onclick="closeNewRoundModal()">Hủy</button>
+        <button id="new-round-submit" type="submit" class="action rounded-xl bg-yellow-300 px-5 py-3 font-black">Tạo vòng</button>
+       </div>
+      </form>
+     </div>
+    </div>
    <div id="auth-modal" class="modal fixed inset-0 z-50 items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <div class="soft-card w-full max-w-md p-6 md:p-8">
      <div class="flex justify-between gap-4 items-start">
@@ -398,10 +454,11 @@
     </div>
    </div>
    <div id="toast" class="toast fixed bottom-5 left-1/2 z-[60] rounded-full bg-slate-900 px-5 py-3 text-white font-extrabold shadow-xl" role="status"></div>
+   <div id="reward-fx-layer" class="reward-fx-layer" aria-hidden="true"></div>
   </div>
   <script>
-    const CACHE_KEY = "rung-chuong-vang-shared-cache-v19";
-    const SHARED_KEY = "shared-app-data";
+    const CACHE_KEY = "rung-chuong-vang-shared-cache-v19-draft";
+    const SHARED_KEY = "shared-app-data-draft";
     const DATA_TYPE = "shared_app_state";
     const sampleQuestions = [
       {id:1,round:1,q:"Thủ đô của Việt Nam là thành phố nào?",options:["Hà Nội","Huế","Đà Nẵng","Cần Thơ"],correct:0},
@@ -423,8 +480,24 @@
     function isDeletedSampleStudent(student) {
       return LEGACY_STUDENT_IDS.has(String(student?.id)) || LEGACY_STUDENT_NAMES.has(String(student?.name || ""));
     }
+    function normalizeStudents(list) {
+      return (Array.isArray(list) ? list : [])
+        .filter(student => !isDeletedSampleStudent(student))
+        .map(student => ({
+          ...student,
+          classId: student?.classId != null ? String(student.classId) : ""
+        }));
+    }
     function cleanStudents(list) {
-      return (Array.isArray(list) ? list : []).filter(student => !isDeletedSampleStudent(student));
+      return normalizeStudents(list);
+    }
+    function getClassById(classId) {
+      const normalized = String(classId ?? "");
+      return classes.find(item => String(item.id) === normalized) || null;
+    }
+    function getStudentClassName(student) {
+      const linkedClass = getClassById(student?.classId);
+      return linkedClass?.name || String(student?.className || "").trim() || "Chưa xếp lớp";
     }
     function defaultDeletedStudents() {
       const stamp = now();
@@ -432,9 +505,10 @@
     }
     const defaultShared = () => ({
       version:19,
-      schemaVersion:1,
+      schemaVersion:4,
       revision:1,
       updatedAt:new Date().toISOString(),
+      classes:[],
       students:[],
       deletedStudents:defaultDeletedStudents(),
       rounds:[
@@ -449,7 +523,7 @@
     });
 
     let shared = defaultShared();
-    let students = shared.students, rounds = shared.rounds, questions = shared.questions, settings = shared.settings, teacherSecurity = shared.teacherSecurity, progressHistory = shared.progressHistory;
+    let classes = shared.classes, students = shared.students, rounds = shared.rounds, questions = shared.questions, settings = shared.settings, teacherSecurity = shared.teacherSecurity, progressHistory = shared.progressHistory;
     let backendRecords = [];
     let sharedRecord = null;
     let dataReady = false;
@@ -473,17 +547,28 @@
     let teacherSession = {valid:false,expiresAt:0};
     let studentSession = {studentId:null,expiresAt:0};
     let activeStudent = null;
-    let currentRound = 1, quizQuestions = [], questionIndex = 0, score = 0, answered = false;
+    let currentRound = 1, quizQuestions = [], questionIndex = 0, score = 0, answered = false, currentAttemptId = null;
     let authMode = null;
     let currentTeacherTab = "questions";
 
     function now() { return new Date().toISOString(); }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&gt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char])); }
-    function normalizeRoundLocks() { rounds.forEach(r => { if (typeof r.locked !== "boolean") r.locked = true; if (!r.updatedAt) r.updatedAt = shared.updatedAt || now(); }); }
+    function normalizeRoundLocks() { rounds.forEach(r => { if (typeof r.locked !== "boolean") r.locked = true; if (r.classId != null) r.classId = String(r.classId); else r.classId = ""; if (!r.updatedAt) r.updatedAt = shared.updatedAt || now(); }); }
+    function normalizeClasses(list) {
+      return (Array.isArray(list) ? list : []).filter(item => item && item.id != null && String(item.name || "").trim()).map(item => ({
+        ...item,
+        id:String(item.id),
+        name:String(item.name).trim(),
+        updatedAt:item.updatedAt || now()
+      }));
+    }
     function bindShared() {
+      shared.classes = normalizeClasses(shared.classes);
       shared.deletedStudents = {...defaultDeletedStudents(), ...(shared.deletedStudents || {})};
-      shared.students = cleanStudents(shared.students);
-      students = shared.students || [];
+      shared.students = normalizeStudents(shared.students);
+      classes = shared.classes || [];
+      students = normalizeStudents(shared.students);
+      shared.students = students;
       rounds = shared.rounds || [];
       questions = shared.questions || [];
       settings = {...{time:20,sound:true}, ...(shared.settings || {})};
@@ -559,14 +644,39 @@
         return !tombstone || new Date(student.updatedAt || 0) > new Date(tombstone.updatedAt || 0);
       });
     }
+    function progressAttempts(item) {
+      if (Array.isArray(item?.attempts)) return item.attempts;
+      if (Array.isArray(item?.answers) && item.answers.length) {
+        return [{
+          id: String(item.attemptId || `legacy-${item.startedAt || item.updatedAt || Date.now()}`),
+          answers: item.answers,
+          score: Number(item.score || item.answers.filter(a => a.correct).length * 100),
+          startedAt: item.startedAt || item.updatedAt || now(),
+          completedAt: item.completedAt || null,
+          updatedAt: item.updatedAt || now(),
+          legacy: true
+        }];
+      }
+      return [];
+    }
     function mergeProgress(localProgress, remoteProgress) {
       const keys = new Set([...Object.keys(localProgress || {}), ...Object.keys(remoteProgress || {})]);
       const result = {};
       keys.forEach(key => {
         const a = localProgress?.[key], b = remoteProgress?.[key];
-        if (!a) result[key] = b;
-        else if (!b) result[key] = a;
-        else result[key] = updatedValue(a) >= updatedValue(b) ? a : b;
+        if (!a) { result[key] = b; return; }
+        if (!b) { result[key] = a; return; }
+        const attempts = new Map();
+        [...progressAttempts(a), ...progressAttempts(b)].forEach(attempt => {
+          const id = String(attempt.id || `attempt-${attempt.startedAt || attempt.updatedAt || Math.random()}`);
+          const existing = attempts.get(id);
+          if (!existing || updatedValue(attempt) >= updatedValue(existing)) attempts.set(id, attempt);
+        });
+        const mergedAttempts = [...attempts.values()].sort((x,y) => new Date(x.startedAt || 0).getTime() - new Date(y.startedAt || 0).getTime());
+        result[key] = {
+          attempts: mergedAttempts,
+          updatedAt: Math.max(updatedValue(a), updatedValue(b)) ? new Date(Math.max(updatedValue(a), updatedValue(b))).toISOString() : now()
+        };
       });
       return result;
     }
@@ -574,9 +684,10 @@
       if (!remote) return local;
       const result = {
         version:19,
-        schemaVersion:1,
+        schemaVersion:4,
         revision:Math.max(Number(local.revision || 0), Number(remote.revision || 0)),
         updatedAt:updatedValue(local) >= updatedValue(remote) ? local.updatedAt : remote.updatedAt,
+        classes:mergeById(normalizeClasses(local.classes), normalizeClasses(remote.classes)),
         students:mergeStudents(local.students, remote.students, local.deletedStudents, remote.deletedStudents),
         deletedStudents:mergeDeletedStudents(local.deletedStudents, remote.deletedStudents),
         rounds:mergeById(local.rounds, remote.rounds),
@@ -596,12 +707,13 @@
     }
     function buildSnapshot() {
       return JSON.stringify({
-        version:18,
-        schemaVersion:3,
+        version:19,
+        schemaVersion:4,
         migrationCompleted:Boolean(migrationCompleted),
         revision:shared.revision,
         updatedAt:shared.updatedAt,
         source:{key:SHARED_KEY,kind:"canva-sheet"},
+        classes:normalizeClasses(shared.classes),
         students:cleanStudents(students), deletedStudents:shared.deletedStudents || defaultDeletedStudents(), rounds, questions, settings, teacherSecurity, progressHistory
       });
     }
@@ -643,6 +755,7 @@
           lastConfirmedRevision = Math.max(lastConfirmedRevision, remoteRevision);
           // Remote is canonical on startup; only an explicit pending mutation may merge into it.
           const incomingShared = {...remote, schemaVersion:Number(remote.schemaVersion || 1)};
+          incomingShared.classes = normalizeClasses(incomingShared.classes);
           const hadDeletedSamples = Array.isArray(incomingShared.students) && incomingShared.students.some(isDeletedSampleStudent);
           shared = pendingLocalMutation && outbox?.snapshot ? mergeSharedData(incomingShared, outbox.snapshot) : incomingShared;
           shared.schemaVersion = Math.max(Number(shared.schemaVersion || 1), Number(incomingShared.schemaVersion || 1));
@@ -968,29 +1081,28 @@
     });
 
     async function ensureRequestedProfiles() {
-      const requested = [
-        {id:"requested-profile-hao",name:"Hào",emoji:"🌟"},
-        {id:"requested-profile-tam",name:"Tâm",emoji:"🌱"},
-        {id:"requested-profile-hien-minh",name:"Hiển Minh",emoji:"🚀"}
-      ];
-      const normalized = value => String(value ?? "").trim().toLocaleLowerCase("vi-VN");
-      let changed = false;
-      requested.forEach(({id,name,emoji}) => {
-        const existing = students.find(student => normalized(student.id) === normalized(id) || normalized(student.name) === normalized(name));
-        if (existing) return;
-        students.push({id,name,className:"Chưa phân lớp",emoji,stars:0,bestCombo:0,completed:0,updatedAt:now()});
-        changed = true;
-      });
+      // Xóa các hồ sơ MẶC ĐỊNH cũ theo ID cố định.
+      // Chỉ xóa đúng 3 hồ sơ hệ thống, không xóa hồ sơ học sinh mới tạo
+      // dù học sinh đó có tên Hào, Tâm hoặc Hiển Minh.
+      const defaultProfileIds = new Set([
+        "requested-profile-hao",
+        "requested-profile-tam",
+        "requested-profile-hien-minh"
+      ]);
+      const before = students.length;
+      students = students.filter(student => !defaultProfileIds.has(String(student?.id || "")));
       shared.students = students;
-      if (changed) {
+
+      if (students.length !== before) {
         markSharedChanged();
         if (remoteReadCompleted && window.dataSdk && typeof window.dataSdk.create === "function" && typeof window.dataSdk.update === "function") {
           await persistShared(true);
         } else {
           pendingLocalMutation = true;
-          setSyncStatus("Chưa đồng bộ hồ sơ · nguồn dữ liệu dùng chung không khả dụng", true);
+          setSyncStatus("Đã xóa hồ sơ mặc định · chưa đồng bộ", true);
         }
       }
+
       renderProfiles();
       if (document.getElementById("teacher-screen")?.classList.contains("active") && teacherSession.valid) renderStudentsAdmin();
     }
@@ -1002,7 +1114,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "profile-card soft-card p-4 text-center font-black";
-        button.innerHTML = `<span class="text-4xl">${student.emoji || "🎈"}</span><strong class="block mt-2">${escapeHtml(student.name)}</strong><span class="block text-sm text-slate-500">${escapeHtml(student.className)}</span><span class="block mt-2 text-yellow-500">⭐ ${student.stars || 0}</span>`;
+        button.innerHTML = `<span class="text-4xl">${student.emoji || "🎈"}</span><strong class="block mt-2">${escapeHtml(student.name)}</strong><span class="block text-sm text-slate-500">${escapeHtml(getStudentClassName(student))}</span><span class="block mt-2 text-yellow-500">⭐ ${student.stars || 0}</span>`;
         button.onclick = () => openAuthModal("student-login",student.id);
         list.appendChild(button);
       });
@@ -1016,16 +1128,108 @@
     function logoutTeacher() { teacherSession = {valid:false,expiresAt:0}; showScreen(activeStudent ? "home-screen" : "welcome-screen"); }
     function goHome() { activeStudent ? (renderHome(),showScreen("home-screen")) : showScreen("welcome-screen"); }
 
+    function getStudentRounds(student = activeStudent) {
+      if (!student || student.id === "guest") return rounds.slice();
+
+      const classId = String(student.classId ?? "");
+      if (!classId) {
+        return rounds.filter(round => !String(round.classId ?? ""));
+      }
+
+      return rounds.filter(round => String(round.classId ?? "") === classId);
+    }
+
+    function canStudentAccessRound(round, student = activeStudent) {
+      if (!round || !student) return false;
+      if (student.id === "guest") return true;
+
+      const studentClassId = String(student.classId ?? "");
+      const roundClassId = String(round.classId ?? "");
+
+      return studentClassId
+        ? roundClassId === studentClassId
+        : !roundClassId;
+    }
+
+    function getRoundQuestionCount(roundId) {
+      return questions.filter(q => String(q.round) === String(roundId)).length;
+    }
+    function getRoundStars(student, roundId) {
+      if (!student || student.id === "guest") return 0;
+      const maxStars = getRoundQuestionCount(roundId);
+      if (!maxStars) return 0;
+      const saved = Number(student.roundStars?.[String(roundId)]);
+      if (Number.isFinite(saved) && saved >= 0) return Math.min(maxStars,saved);
+      const item = progressHistory[progressKey(student.id,roundId)];
+      return Math.min(maxStars,progressAttempts(item).reduce((total,attempt) => {
+        if (!attempt.completedAt) return total;
+        const correct = (attempt.answers || []).filter(answer => answer.correct).length;
+        return Math.min(maxStars,total + correct);
+      },0));
+    }
+
+    function renderStudentProgress(student, visibleRounds) {
+      const totalStars = Number(student?.stars || 0);
+      const totalEl = document.getElementById("student-progress-total-stars");
+      const list = document.getElementById("student-progress-list");
+      if (totalEl) totalEl.textContent = `${totalStars} ⭐`;
+      if (!list) return;
+      if (student?.id === "guest") {
+        list.innerHTML = '<div class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Đăng nhập hồ sơ để lưu và theo dõi số sao của riêng em.</div>';
+        return;
+      }
+      if (!visibleRounds.length) {
+        list.innerHTML = '<div class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Lớp của em hiện chưa có vòng chơi để theo dõi.</div>';
+        return;
+      }
+      list.innerHTML = visibleRounds.map(round => {
+        const item = progressHistory[progressKey(student.id,round.id)] || null;
+        const attempts = progressAttempts(item);
+        const completedAttempts = attempts.filter(attempt => attempt.completedAt);
+        const answered = attempts.reduce((n,attempt) => n + (attempt.answers || []).length,0);
+        const qsCount = getRoundQuestionCount(round.id);
+        const bestCorrect = attempts.reduce((best,attempt) => Math.max(best,(attempt.answers || []).filter(answer => answer.correct).length),0);
+        const roundStars = getRoundStars(student,round.id);
+        const progress = qsCount ? Math.min(100,Math.round(bestCorrect / qsCount * 100)) : 0;
+        const state = completedAttempts.length ? "Đã hoàn thành" : answered ? "Đang chơi" : "Chưa bắt đầu";
+        const stateClass = completedAttempts.length ? "text-emerald-700 bg-emerald-50" : answered ? "text-blue-700 bg-blue-50" : "text-slate-500 bg-slate-50";
+        return `<article class="rounded-2xl border-2 border-slate-100 p-4 bg-white">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0"><div class="font-black">Vòng ${escapeHtml(round.id)} · ${escapeHtml(round.name)}</div><div class="text-sm font-bold text-slate-500 mt-1">${state} · ${completedAttempts.length} lượt hoàn thành</div></div>
+            <div class="text-right"><div class="text-lg font-black text-yellow-600">⭐ ${roundStars}/${qsCount || 0}</div><div class="text-xs font-bold text-slate-400">sao của vòng</div></div>
+          </div>
+          <div class="mt-3 h-3 rounded-full bg-slate-100 overflow-hidden"><div class="h-3 rounded-full bg-yellow-400 transition-all duration-700" style="width:${roundStars && qsCount ? Math.round(roundStars / qsCount * 100) : 0}%"></div></div>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-500"><span>${qsCount ? `${bestCorrect}/${qsCount} câu đúng ở lượt tốt nhất` : "Chưa có câu hỏi"}</span><span class="rounded-full px-2 py-1 ${stateClass}">${state}</span></div>
+        </article>`;
+      }).join("");
+    }
+
     function renderHome() {
       if (!activeStudent) return;
       if (activeStudent.id !== "guest") activeStudent = students.find(s => s.id === activeStudent.id) || activeStudent;
+
+      const visibleRounds = getStudentRounds(activeStudent);
+
       document.getElementById("student-greeting").textContent = `Chào ${activeStudent.name}! ${activeStudent.emoji || "🎈"}`;
       document.getElementById("star-total").textContent = activeStudent.stars || 0;
       document.getElementById("combo-total").textContent = `x${activeStudent.bestCombo || 0}`;
-      document.getElementById("round-total").textContent = `${Math.min((activeStudent.completed || 0)+1,rounds.length)} / ${rounds.length}`;
+      const completedVisibleRounds = activeStudent.id === "guest"
+        ? 0
+        : visibleRounds.filter(round => progressAttempts(progressHistory[progressKey(activeStudent.id,round.id)]).some(attempt => attempt.completedAt)).length;
+      document.getElementById("round-total").textContent = visibleRounds.length
+        ? `${completedVisibleRounds} / ${visibleRounds.length}`
+        : "0 / 0";
+      renderStudentProgress(activeStudent,visibleRounds);
+
       const map = document.getElementById("round-map");
       map.innerHTML = "";
-      rounds.forEach(round => {
+
+      if (!visibleRounds.length) {
+        map.innerHTML = '<div class="sm:col-span-3 rounded-2xl bg-slate-50 p-6 text-center font-bold text-slate-500">Lớp của em hiện chưa có vòng chơi.</div>';
+        return;
+      }
+
+      visibleRounds.forEach(round => {
         const card = document.createElement("button");
         card.type = "button";
         card.disabled = round.locked === true;
@@ -1036,18 +1240,28 @@
         map.appendChild(card);
       });
     }
+
     function startNextRound() {
-      const round = rounds.find(r => !r.locked);
-      if (!round) return toast("Hiện chưa có vòng nào được mở.");
+      const round = getStudentRounds(activeStudent).find(r => !r.locked);
+      if (!round) return toast("Lớp của em hiện chưa có vòng nào được mở.");
       startRound(round.id);
     }
+
     function startRound(roundId) {
-      const round = rounds.find(r => r.id === roundId);
-      if (!round || round.locked) return toast("Vòng này chưa được mở.");
+      const round = rounds.find(r => String(r.id) === String(roundId));
+
+      if (!round || !canStudentAccessRound(round, activeStudent)) {
+        return toast("Em không có quyền vào vòng chơi này.");
+      }
+
+      if (round.locked) return toast("Vòng này chưa được mở.");
+
       currentRound = roundId;
-      quizQuestions = questions.filter(q => q.round === roundId);
+      quizQuestions = questions.filter(q => String(q.round) === String(roundId));
       if (!quizQuestions.length) return toast("Vòng này chưa có câu hỏi.");
-      questionIndex = 0; score = 0;
+
+      currentAttemptId = `attempt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      questionIndex = 0; score = 0; currentCombo = 0;
       showScreen("quiz-screen"); renderQuestion();
     }
     function safeMediaUrl(value) {
@@ -1126,44 +1340,111 @@
     function recordProgress(question,selectedIndex,correct) {
       if (!activeStudent || activeStudent.id === "guest") return;
       const key = progressKey(activeStudent.id,currentRound);
-      const item = progressHistory[key] || {answers:[],score:0,startedAt:now(),completedAt:null,updatedAt:now()};
-      const existing = item.answers.find(a => a.questionId === question.id);
+      const item = progressHistory[key] || {attempts:[],updatedAt:now()};
+      const attempts = progressAttempts(item);
+      item.attempts = attempts;
+      let attempt = attempts.find(a => String(a.id) === String(currentAttemptId));
+      if (!attempt) {
+        attempt = {id:currentAttemptId || `attempt-${Date.now()}-${Math.random().toString(16).slice(2)}`,answers:[],score:0,startedAt:now(),completedAt:null,updatedAt:now()};
+        currentAttemptId = attempt.id;
+        attempts.push(attempt);
+      }
       const answer = {questionId:question.id,selectedIndex,correctIndex:question.correct,correct,answeredAt:now()};
-      if (existing) Object.assign(existing,answer); else item.answers.push(answer);
-      item.score = item.answers.filter(a => a.correct).length * 100;
+      attempt.answers.push(answer);
+      attempt.score = attempt.answers.filter(a => a.correct).length * 100;
+      touchEntity(attempt);
       touchEntity(item);
       progressHistory[key] = item;
     }
+    function showRewardFx(main,sub="",combo=0) {
+      const layer = document.getElementById("reward-fx-layer");
+      if (!layer) return;
+      const wrap = document.createElement("div");
+      wrap.className = "reward-fx";
+      wrap.innerHTML = `<div class="reward-main">${main}</div>${sub ? `<div class="reward-sub">${sub}</div>` : ""}`;
+      layer.appendChild(wrap);
+      ["⭐","✨","🌟","💫","⭐","✨"].forEach((symbol,i) => {
+        const spark = document.createElement("span");
+        spark.className = "reward-spark"; spark.textContent = symbol;
+        spark.style.setProperty("--dx", `${[-110,-65,70,120,-35,40][i]}px`);
+        spark.style.setProperty("--dy", `${[-65,-115,-95,-35,105,125][i]}px`);
+        spark.style.animationDelay = `${i*35}ms`;
+        layer.appendChild(spark); setTimeout(() => spark.remove(), 900);
+      });
+      setTimeout(() => wrap.remove(), 950);
+      if (combo >= 2) {
+        const badge = document.createElement("div"); badge.className = "reward-combo";
+        badge.textContent = `🔥 Combo x${combo}`; layer.appendChild(badge);
+        setTimeout(() => badge.remove(), 750);
+      }
+    }
+    function showWrongFx() {
+      const layer = document.getElementById("reward-fx-layer"); if (!layer) return;
+      const wrap = document.createElement("div"); wrap.className = "reward-fx";
+      wrap.innerHTML = `<div class="reward-main">💥</div><div class="reward-sub">Này? Chép phạt nhé?</div>`;
+      layer.appendChild(wrap); setTimeout(() => wrap.remove(), 950);
+    }
+
     function answerQuestion(index) {
       if (answered) return;
       answered = true;
       const q = quizQuestions[questionIndex];
       const correct = index === q.correct;
-      if (correct) playCorrectSound(); else playWrongSound();
+      if (correct) { currentCombo += 1; playCorrectSound(); }
+      else { currentCombo = 0; playWrongSound(); }
       recordProgress(q,index,correct);
       document.querySelectorAll("#answer-list button").forEach((button,i) => {
         button.disabled = true;
         if (i === q.correct) button.classList.add("correct");
         if (i === index && !correct) button.classList.add("wrong");
       });
-      if (correct) { score += 100; document.getElementById("quiz-feedback").textContent = "Chính xác! +100 điểm ⭐"; }
-      else document.getElementById("quiz-feedback").textContent = "Chưa đúng, cùng cố gắng nhé!";
+      if (correct) {
+        score += 100;
+        document.getElementById("quiz-feedback").textContent = currentCombo >= 2 ? `Chính xác! 🔥 Combo x${currentCombo}` : "Chính xác! +100 điểm ⭐";
+        showRewardFx(currentCombo >= 2 ? "🔥" : "⭐", currentCombo >= 2 ? `Ái chà. Đúng ${currentCombo} câu liên tiếp!` : "+100 điểm", currentCombo);
+      } else {
+        document.getElementById("quiz-feedback").textContent = "Chưa tày đâu!";
+        showWrongFx();
+      }
       persistShared(true);
       setTimeout(() => { questionIndex++; questionIndex < quizQuestions.length ? renderQuestion() : finishQuiz(false); },1000);
     }
     function finishQuiz(quit) {
+      let earnedStarsThisRound = 0;
+      let roundCompletedThisTime = false;
       if (!quit && activeStudent && activeStudent.id !== "guest") {
-        activeStudent.stars = (activeStudent.stars || 0) + Math.max(1,Math.round(score/100));
-        activeStudent.completed = Math.max(activeStudent.completed || 0,Math.min(rounds.length,currentRound));
-        touchEntity(activeStudent);
         const item = progressHistory[progressKey(activeStudent.id,currentRound)];
-        if (item) { item.completedAt = now(); touchEntity(item); }
-        markSharedChanged(); persistShared(true);
+        const attempt = progressAttempts(item).find(a => String(a.id) === String(currentAttemptId));
+        const wasAlreadyCompleted = Boolean(attempt?.completedAt);
+        if (attempt && !wasAlreadyCompleted) {
+          const roundKey = String(currentRound);
+          const maxRoundStars = getRoundQuestionCount(currentRound);
+          const currentRoundStars = getRoundStars(activeStudent,currentRound);
+          const correctThisAttempt = (attempt.answers || []).filter(answer => answer.correct).length;
+          const remainingStars = Math.max(0,maxRoundStars - currentRoundStars);
+          const earnedStars = Math.min(correctThisAttempt,remainingStars);
+          earnedStarsThisRound = earnedStars;
+          roundCompletedThisTime = maxRoundStars > 0 && currentRoundStars + earnedStars >= maxRoundStars;
+          activeStudent.stars = (activeStudent.stars || 0) + earnedStars;
+          activeStudent.roundStars = {...(activeStudent.roundStars || {})};
+          activeStudent.roundStars[roundKey] = Math.min(maxRoundStars,currentRoundStars + earnedStars);
+          activeStudent.completed = Math.max(activeStudent.completed || 0,Math.min(rounds.length,currentRound));
+          attempt.completedAt = now();
+          touchEntity(attempt);
+          touchEntity(item);
+          touchEntity(activeStudent);
+          markSharedChanged();
+          persistShared(true);
+        }
       }
       if (quit) { renderHome(); showScreen("home-screen"); return; }
       document.getElementById("result-title").textContent = "KẾT THÚC VÒNG!";
-      document.getElementById("result-copy").textContent = "Kết quả lượt chơi đã được ghi nhận.";
+      document.getElementById("result-copy").textContent = earnedStarsThisRound > 0
+        ? `Tuyệt vời! Em vừa nhận +${earnedStarsThisRound} ⭐ cho vòng này.`
+        : "Kết quả lượt chơi đã được ghi nhận.";
       document.getElementById("result-score").textContent = score;
+      document.getElementById("result-emoji").textContent = roundCompletedThisTime ? "🏆" : earnedStarsThisRound > 0 ? "🎉" : "✨";
+      if (roundCompletedThisTime) showRewardFx("🏆", "Hoàn thành phần thưởng của vòng!");
       showScreen("result-screen");
     }
     function renderAchievements() {
@@ -1183,6 +1464,7 @@
       if (name === "questions") renderQuestionBank();
       if (name === "rounds") renderRounds();
       if (name === "students") { renderStudentsAdmin(); renderProgressTracker(); }
+      if (name === "classes") renderClassesAdmin();
       if (name === "settings") {
         document.getElementById("timer-setting").value = settings.time;
         document.getElementById("sound-setting").checked = settings.sound;
@@ -1215,25 +1497,41 @@
     }
     let bulkImportRows = [];
     function openBulkImportModal() {
-      const select = document.getElementById("bulk-import-round");
-      select.innerHTML = rounds.length ? rounds.map(r => `<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("") : '<option value="">Chưa có vòng</option>';
+      const classSelect = document.getElementById("bulk-import-class");
+      const roundSelect = document.getElementById("bulk-import-round");
+      classSelect.innerHTML = '<option value="">Chọn lớp</option>' + classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("");
+      roundSelect.innerHTML = '<option value="">Chọn lớp trước</option>';
+      classSelect.onchange = () => {
+        const classId = String(classSelect.value || "");
+        const classRounds = classId
+          ? rounds.filter(r => String(r.classId ?? "") === classId)
+          : [];
+        roundSelect.innerHTML = classRounds.length
+          ? classRounds.map(r => `<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("")
+          : '<option value="">Lớp này chưa có vòng</option>';
+      };
       document.getElementById("bulk-import-input").value = "";
-      document.getElementById("bulk-import-result").textContent = rounds.length ? "" : "Chưa có vòng chơi. Hãy tạo vòng trước hoặc nhập dữ liệu để xem lỗi.";
+      document.getElementById("bulk-import-result").textContent = classes.length
+        ? ""
+        : "Chưa có lớp. Hãy tạo lớp trước.";
       document.getElementById("bulk-save-button").disabled = true;
       bulkImportRows = [];
       document.getElementById("bulk-import-modal").classList.add("open");
     }
     function closeBulkImportModal() { document.getElementById("bulk-import-modal").classList.remove("open"); bulkImportRows = []; }
     function parseBulkImport() {
+      const selectedClass = document.getElementById("bulk-import-class").value;
       const defaultRound = document.getElementById("bulk-import-round").value;
       const lines = document.getElementById("bulk-import-input").value.split(/\r?\n/).map((text,index) => ({text,index:index+1})).filter(row => row.text.trim());
-      const knownRounds = new Set(rounds.map(r => String(r.id)));
+      const knownRounds = new Map(rounds.map(r => [String(r.id), r]));
+      const selectedClassExists = classes.some(cls => String(cls.id) === String(selectedClass));
       return lines.map(row => {
         const fields = row.text.split("|").map(value => value.trim());
         const errors = [];
         if (fields.length < 7 || fields.length > 11) errors.push("cần 7 đến 11 trường");
         const [word,meaning,q,correct,choiceText,difficulty,explanation,roundValue,imageUrl,audioUrl,videoUrl] = fields;
         const options = (choiceText || "").split(";").map(value => value.trim()).filter(Boolean);
+        if (!selectedClass || !selectedClassExists) errors.push("lớp không tồn tại hoặc chưa được chọn");
         if (!word || !meaning || !q || !correct || !choiceText || !difficulty || !explanation) errors.push("thiếu trường bắt buộc");
         if (options.length < 2) errors.push("cần ít nhất 2 lựa chọn");
         if (new Set(options.map(value => value.toLocaleLowerCase("vi-VN"))).size !== options.length) errors.push("lựa chọn bị trùng");
@@ -1241,8 +1539,15 @@
         if (correctIndex < 0) errors.push("đáp án đúng không khớp lựa chọn");
         const normalizedDifficulty = (difficulty || "").toLocaleUpperCase("vi-VN");
         if (!["DỄ","TRUNG BÌNH","KHÓ"].includes(normalizedDifficulty)) errors.push("độ khó phải là DỄ, TRUNG BÌNH hoặc KHÓ");
+
         const selectedRound = roundValue || defaultRound;
-        if (!selectedRound || !knownRounds.has(String(selectedRound))) errors.push("vòng không tồn tại");
+        const selectedRoundRecord = knownRounds.get(String(selectedRound));
+        if (!selectedRound || !selectedRoundRecord) {
+          errors.push("vòng không tồn tại");
+        } else if (!selectedClass || String(selectedRoundRecord.classId ?? "") !== String(selectedClass)) {
+          errors.push("vòng không thuộc lớp đã chọn");
+        }
+
         return {
           line:row.index,
           errors,
@@ -1259,12 +1564,21 @@
     }
     function previewBulkImport() {
       bulkImportRows = parseBulkImport();
+      const existingKeys = new Set(questions.map(question => `${Number(question.round)}|${String(question.q || "").trim().toLocaleLowerCase("vi-VN")}`));
+      const previewKeys = new Set();
+      bulkImportRows.forEach(row => {
+        if (row.errors.length) return;
+        const key = `${Number(row.data.round)}|${String(row.data.q || "").trim().toLocaleLowerCase("vi-VN")}`;
+        if (existingKeys.has(key)) row.errors.push("câu hỏi đã tồn tại trong vòng này");
+        else if (previewKeys.has(key)) row.errors.push("câu hỏi bị trùng trong lần nhập này");
+        previewKeys.add(key);
+      });
       const result = document.getElementById("bulk-import-result");
       result.textContent = "";
       bulkImportRows.forEach(row => {
         const item = document.createElement("div");
         item.className = `rounded-xl p-3 font-bold text-sm ${row.errors.length ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`;
-        item.textContent = row.errors.length ? `Dòng ${row.line}: Lỗi — ${row.errors.join("; ")}` : `Dòng ${row.line}: Hợp lệ — ${row.data.q}`;
+        item.textContent = row.errors.length ? `Dòng ${row.line}: Lỗi — ${row.errors.join("; ")}` : `Dòng ${row.line}: Hợp lệ — ${row.data.q} · Lớp: ${document.getElementById("bulk-import-class").selectedOptions[0]?.text || "—"} · Vòng: ${row.data.round}`;
         result.appendChild(item);
       });
       document.getElementById("bulk-save-button").disabled = !bulkImportRows.length || bulkImportRows.some(row => row.errors.length);
@@ -1272,6 +1586,25 @@
     async function saveBulkImport() {
       if (!bulkImportRows.length || bulkImportRows.some(row => row.errors.length)) return;
       const button = document.getElementById("bulk-save-button");
+      const freshRows = parseBulkImport();
+      if (!freshRows.length || freshRows.some(row => row.errors.length)) {
+        bulkImportRows = freshRows;
+        previewBulkImport();
+        return;
+      }
+      const existingKeys = new Set(questions.map(question => `${Number(question.round)}|${String(question.q || "").trim().toLocaleLowerCase("vi-VN")}`));
+      const importKeys = new Set();
+      const duplicateRows = [];
+      freshRows.forEach(row => {
+        const key = `${Number(row.data.round)}|${String(row.data.q || "").trim().toLocaleLowerCase("vi-VN")}`;
+        if (existingKeys.has(key) || importKeys.has(key)) duplicateRows.push(row.line);
+        importKeys.add(key);
+      });
+      if (duplicateRows.length) {
+        toast(`Phát hiện câu hỏi trùng ở dòng ${duplicateRows.join(", ")}. Chưa lưu dữ liệu.`);
+        return;
+      }
+      bulkImportRows = freshRows;
       button.disabled = true;
       const created = bulkImportRows.map(row => touchEntity({id:`q-${Date.now()}-${Math.random().toString(16).slice(2)}`,...row.data}));
       questions.push(...created); shared.questions = questions;
@@ -1285,45 +1618,315 @@
         round:Number(document.getElementById("question-round").value),
         q:document.getElementById("question-input").value.trim(),
         options:[0,1,2,3].map(i => document.getElementById(`opt-${i}`).value.trim()),
-        correct:Number(document.getElementById("correct-answer").value),
-        imageUrl:document.getElementById("question-image-url").value.trim(),
-        audioUrl:document.getElementById("question-audio-url").value.trim(),
-        videoUrl:document.getElementById("question-video-url").value.trim()
+        correct:Number(document.getElementById("correct-answer").value)
       });
       if (!record.q || record.options.some(x => !x)) return toast("Hãy điền đầy đủ câu hỏi và bốn đáp án.");
       questions.push(record); shared.questions = questions;
       markSharedChanged(); persistShared(true); event.target.reset(); renderQuestionBank(); toast("Đã lưu câu hỏi.");
     });
 
+    function renderRoundClassSelect(select, selectedId = "") {
+      if (!select) return;
+      const normalized = String(selectedId ?? "");
+      select.innerHTML = '<option value="">Chưa xếp lớp</option>' + classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("");
+      select.value = normalized;
+    }
+
+    async function updateRoundClass(roundId, classId) {
+      const round = rounds.find(item => String(item.id) === String(roundId));
+      if (!round) return;
+      round.classId = String(classId ?? "");
+      touchEntity(round);
+      shared.rounds = rounds;
+      markSharedChanged();
+      await persistShared(true);
+      renderRounds();
+      const className = getClassById(round.classId)?.name;
+      toast(className ? `Đã gán ${className} cho vòng ${round.id}.` : `Đã bỏ xếp lớp cho vòng ${round.id}.`);
+    }
+
+    let roundClassFilter = "";
+
+    function renderRoundClassFilter() {
+      const select = document.getElementById("round-class-filter");
+      if (!select) return;
+      const previous = roundClassFilter;
+      select.innerHTML = '<option value="">Tất cả lớp</option>' +
+        classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("") +
+        '<option value="__unassigned__">Chưa xếp lớp</option>';
+      const validValues = ["", "__unassigned__", ...classes.map(cls => String(cls.id))];
+      roundClassFilter = validValues.includes(previous) ? previous : "";
+      select.value = roundClassFilter;
+      select.onchange = () => {
+        roundClassFilter = select.value;
+        renderRounds();
+      };
+    }
+
+    function getRoundGroupKey(round) {
+      const classId = String(round?.classId ?? "");
+      return getClassById(classId) ? classId : "__unassigned__";
+    }
+
+    function getRoundGroupTitle(groupKey) {
+      if (groupKey === "__unassigned__") return "Chưa xếp lớp";
+      return getClassById(groupKey)?.name || "Chưa xếp lớp";
+    }
+
     function renderRounds() {
       const box = document.getElementById("round-editor");
+      if (!box) return;
+      renderRoundClassFilter();
       box.innerHTML = "";
-      rounds.forEach(round => {
-        const count = questions.filter(q => q.round === round.id).length;
+
+      const filteredRounds = rounds.filter(round => {
+        if (!roundClassFilter) return true;
+        return getRoundGroupKey(round) === roundClassFilter;
+      });
+
+      if (!filteredRounds.length) {
+        box.innerHTML = '<div class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center font-bold text-slate-500">Chưa có vòng nào trong nhóm này.</div>';
+        return;
+      }
+
+      const groupKeys = [];
+      const groups = new Map();
+      const classIds = classes.map(cls => String(cls.id));
+      const orderedKeys = roundClassFilter
+        ? [roundClassFilter]
+        : [...classIds, "__unassigned__"];
+
+      filteredRounds.forEach(round => {
+        const key = getRoundGroupKey(round);
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          groupKeys.push(key);
+        }
+        groups.get(key).push(round);
+      });
+
+      const finalGroupKeys = orderedKeys.filter(key => groups.has(key));
+      groupKeys.forEach(key => {
+        if (!finalGroupKeys.includes(key)) finalGroupKeys.push(key);
+      });
+
+      finalGroupKeys.forEach(groupKey => {
+        const groupRounds = groups.get(groupKey) || [];
+        groupRounds.sort((a, b) => {
+          const aId = Number(a.id);
+          const bId = Number(b.id);
+          if (Number.isFinite(aId) && Number.isFinite(bId)) return aId - bId;
+          return String(a.id).localeCompare(String(b.id), "vi-VN", { numeric: true });
+        });
+
+        const section = document.createElement("section");
+        section.className = "rounded-3xl border-2 border-slate-100 bg-slate-50/70 p-4 md:p-5";
+        section.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2 mb-4"><div class="flex items-center gap-2"><span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-black">🏫</span><div><h3 class="font-black text-xl text-slate-800">${escapeHtml(getRoundGroupTitle(groupKey))}</h3><p class="text-sm font-bold text-slate-500">${groupRounds.length} vòng</p></div></div></div><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" data-round-group></div>`;
+
+        const groupBox = section.querySelector("[data-round-group]");
+        groupRounds.forEach(round => {
+          const count = questions.filter(q => q.round === round.id).length;
+          const card = document.createElement("article");
+          card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
+          card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
+          const classSelect = card.querySelector(`#round-class-${round.id}`);
+          renderRoundClassSelect(classSelect, round.classId);
+          classSelect.onchange = async () => {
+            await updateRoundClass(round.id, classSelect.value);
+          };
+
+          card.querySelector(".save").onclick = () => {
+            round.name = card.querySelector(`#round-name-${round.id}`).value.trim() || round.name;
+            touchEntity(round); markSharedChanged(); persistShared(true); renderRounds();
+          };
+          card.querySelector(".toggle").onclick = () => {
+            round.locked = !round.locked;
+            touchEntity(round); markSharedChanged(); persistShared(true); renderRounds(); renderHome();
+            toast(round.locked ? "Đã khóa vòng." : "Đã mở vòng.");
+          };
+          groupBox.appendChild(card);
+        });
+        box.appendChild(section);
+      });
+    }
+    function renderClassesAdmin() {
+      const box = document.getElementById("class-editor");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!classes.length) {
+        box.innerHTML = '<p class="md:col-span-2 xl:col-span-3 rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có lớp nào. Bấm “+ Thêm lớp” để tạo lớp đầu tiên.</p>';
+        return;
+      }
+      classes.forEach(cls => {
         const card = document.createElement("article");
         card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
-        card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
-        card.querySelector(".save").onclick = () => {
-          round.name = card.querySelector(`#round-name-${round.id}`).value.trim() || round.name;
-          touchEntity(round); markSharedChanged(); persistShared(true); renderRounds();
+        card.innerHTML = `<span class="inline-block rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-black">LỚP HỌC</span><label class="block text-sm font-extrabold mt-4" for="class-name-${escapeHtml(cls.id)}">Tên lớp</label><input id="class-name-${escapeHtml(cls.id)}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(cls.name)}"><p class="text-xs font-bold text-slate-400 mt-2">ID: ${escapeHtml(cls.id)}</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save-class rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="delete-class rounded-xl bg-rose-100 px-4 py-2 font-black text-rose-700">Xóa lớp</button></div>`;
+        card.querySelector(".save-class").onclick = async () => {
+          const input = card.querySelector("input");
+          const name = input?.value.trim();
+          if (!name) return toast("Tên lớp không được để trống.");
+          const duplicate = classes.some(other => String(other.id) !== String(cls.id) && String(other.name).trim().toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"));
+          if (duplicate) return toast("Tên lớp này đã tồn tại.");
+          cls.name = name;
+          touchEntity(cls);
+          shared.classes = classes;
+          markSharedChanged();
+          await persistShared(true);
+          renderClassesAdmin();
+          renderRounds();
+          toast("Đã cập nhật tên lớp.");
         };
-        card.querySelector(".toggle").onclick = () => {
-          round.locked = !round.locked;
-          touchEntity(round); markSharedChanged(); persistShared(true); renderRounds(); renderHome();
-          toast(round.locked ? "Đã khóa vòng." : "Đã mở vòng.");
+        card.querySelector(".delete-class").onclick = async () => {
+          if (!confirm(`Xóa lớp “${cls.name}”?`)) return;
+          const classId = String(cls.id);
+          students.forEach(student => {
+            if (String(student.classId ?? "") !== classId) return;
+            student.classId = "";
+            student.className = "";
+            touchEntity(student);
+          });
+          rounds.forEach(round => {
+            if (String(round.classId ?? "") !== classId) return;
+            round.classId = "";
+            touchEntity(round);
+          });
+          classes = classes.filter(item => String(item.id) !== classId);
+          shared.classes = classes;
+          shared.students = cleanStudents(students);
+          shared.rounds = rounds;
+          markSharedChanged();
+          await persistShared(true);
+          renderClassesAdmin();
+          renderStudentsAdmin();
+          renderRounds();
+          renderProfiles();
+          renderProgressTracker();
+          toast("Đã xóa lớp và bỏ xếp lớp cho dữ liệu liên quan.");
         };
         box.appendChild(card);
       });
     }
-    function newRound() {
-      const id = Math.max(0,...rounds.map(r => Number(r.id) || 0))+1;
-      rounds.push(touchEntity({id,name:`Vòng ${id}`,color:"#a875ff",locked:true}));
-      shared.rounds = rounds; markSharedChanged(); persistShared(true); renderRounds(); toast("Đã thêm vòng mới.");
+
+    async function newClass() {
+      const rawName = prompt("Nhập tên lớp mới:", "11A1");
+      if (rawName === null) return;
+      const name = rawName.trim();
+      if (!name) return toast("Tên lớp không được để trống.");
+      const duplicate = classes.some(cls => String(cls.name).trim().toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"));
+      if (duplicate) return toast("Tên lớp này đã tồn tại.");
+      const id = `class-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      classes.push(touchEntity({id,name}));
+      shared.classes = classes;
+      markSharedChanged();
+      await persistShared(true);
+      renderClassesAdmin();
+      renderRounds();
+      toast("Đã thêm lớp.");
     }
 
+    function openNewRoundModal() {
+      const modal = document.getElementById("new-round-modal");
+      const classSelect = document.getElementById("new-round-class");
+      const nameInput = document.getElementById("new-round-name");
+      if (!modal || !classSelect || !nameInput) return;
+
+      classSelect.innerHTML =
+        '<option value="">Chọn lớp</option>' +
+        classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("") +
+        '<option value="__unassigned__">Chưa xếp lớp</option>';
+
+      const nextId = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
+      nameInput.value = `Vòng ${nextId}`;
+      classSelect.value = roundClassFilter && roundClassFilter !== "__unassigned__" &&
+        getClassById(roundClassFilter) ? roundClassFilter : "";
+
+      modal.classList.add("open");
+      setTimeout(() => classSelect.focus(), 0);
+    }
+
+    function closeNewRoundModal() {
+      const modal = document.getElementById("new-round-modal");
+      if (modal) modal.classList.remove("open");
+    }
+
+    function newRound() {
+      if (!validTeacherSession()) return requestTeacherAccess();
+      openNewRoundModal();
+    }
+
+    document.getElementById("new-round-form").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const classValue = document.getElementById("new-round-class").value;
+      const nameInput = document.getElementById("new-round-name");
+      const submitButton = document.getElementById("new-round-submit");
+      const name = nameInput.value.trim();
+
+      if (!classValue) return toast("Hãy chọn lớp cho vòng.");
+      if (!name) return toast("Tên vòng không được để trống.");
+
+      const id = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
+      const classId = classValue === "__unassigned__" ? "" : String(classValue);
+
+      submitButton.disabled = true;
+      try {
+        rounds.push(touchEntity({
+          id,
+          name,
+          color: "#a875ff",
+          locked: true,
+          classId
+        }));
+        shared.rounds = rounds;
+        markSharedChanged();
+        await persistShared(true);
+        closeNewRoundModal();
+        renderRounds();
+        toast(classId
+          ? `Đã thêm ${name} vào ${getClassById(classId)?.name || "lớp đã chọn"}.`
+          : `Đã thêm ${name}.`);
+      } catch (error) {
+        console.error("Create round error:", error);
+        toast("Không thể tạo vòng. Vui lòng thử lại.");
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    function renderStudentClassSelect(select, selectedId = "") {
+      if (!select) return;
+      const normalized = String(selectedId ?? "");
+      select.innerHTML = '<option value="">Chưa xếp lớp</option>' +
+        classes.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("");
+      select.value = normalized;
+    }
+    function renderStudentFormClassSelect() {
+      renderStudentClassSelect(document.getElementById("student-class"), "");
+    }
+    async function updateStudentClass(studentId, classId) {
+      const student = findStudentById(studentId);
+      if (!student) return;
+      const selectedClassId = String(classId ?? "");
+      const linkedClass = getClassById(selectedClassId);
+      student.classId = selectedClassId;
+      // Keep the legacy text field for backward compatibility.
+      student.className = linkedClass?.name || student.className || "";
+      touchEntity(student);
+      shared.students = students;
+      markSharedChanged();
+      await persistShared(true);
+      renderStudentsAdmin();
+      renderProfiles();
+      toast(linkedClass ? `Đã chuyển ${student.name} vào ${linkedClass.name}.` : `Đã bỏ xếp lớp cho ${student.name}.`);
+    }
     function renderStudentsAdmin() {
       const box = document.getElementById("teacher-student-list");
-      box.innerHTML = students.map(s => `<article class="rounded-2xl border-2 border-slate-100 p-4"><div class="flex flex-wrap justify-between gap-3 items-center"><div><strong>${s.emoji || "🎈"} ${escapeHtml(s.name)}</strong><span class="ml-2 text-slate-500">${escapeHtml(s.className)}</span><p class="text-sm font-bold text-yellow-600">⭐ ${s.stars || 0}</p></div><div class="flex gap-2"><button type="button" class="rounded-lg bg-blue-100 text-blue-700 px-3 py-2 font-black text-sm" onclick="openAuthModal('student-reset','${s.id}')">Mật khẩu</button><button type="button" class="rounded-lg bg-rose-100 text-rose-700 px-3 py-2 font-black text-sm" onclick="deleteStudent('${s.id}')">Xóa</button></div></div></article>`).join("") || '<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có hồ sơ.</p>';
+      box.innerHTML = students.map(s => `<article class="rounded-2xl border-2 border-slate-100 p-4"><div class="flex flex-wrap justify-between gap-3 items-center"><div class="min-w-0"><strong>${s.emoji || "🎈"} ${escapeHtml(s.name)}</strong><p class="text-sm font-bold text-slate-500 mt-1">Lớp hiện tại: <span class="text-slate-700">${escapeHtml(getStudentClassName(s))}</span></p><p class="text-sm font-bold text-yellow-600">⭐ ${s.stars || 0}</p></div><div class="flex flex-wrap gap-2 items-center"><select class="rounded-lg border-2 border-slate-200 px-3 py-2 font-bold text-sm" aria-label="Chọn lớp cho ${escapeHtml(s.name)}" onchange="updateStudentClass('${s.id}', this.value)"></select><button type="button" class="rounded-lg bg-blue-100 text-blue-700 px-3 py-2 font-black text-sm" onclick="openAuthModal('student-reset','${s.id}')">Mật khẩu</button><button type="button" class="rounded-lg bg-rose-100 text-rose-700 px-3 py-2 font-black text-sm" onclick="deleteStudent('${s.id}')">Xóa</button></div></div></article>`).join("") || '<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có hồ sơ.</p>';
+      box.querySelectorAll("select[aria-label]").forEach((select, index) => {
+        const student = students[index];
+        renderStudentClassSelect(select, student?.classId || "");
+      });
+      renderStudentFormClassSelect();
     }
     async function deleteStudent(id) {
       const removed = students.find(s => String(s.id) === String(id));
@@ -1339,52 +1942,76 @@
       event.preventDefault();
       const password = document.getElementById("student-password").value;
       if (password !== document.getElementById("student-password-confirm").value) return toast("Xác nhận mật khẩu chưa khớp.");
-      const student = touchEntity({id:`s-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:document.getElementById("student-name").value.trim(),className:document.getElementById("student-class").value.trim(),emoji:"🎈",stars:0,bestCombo:0,completed:0});
+      const selectedClassId = String(document.getElementById("student-class").value || "");
+      const selectedClass = getClassById(selectedClassId);
+      if (!selectedClass) return toast("Hãy chọn một lớp trước khi tạo hồ sơ.");
+      const student = touchEntity({id:`s-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:document.getElementById("student-name").value.trim(),classId:selectedClassId,className:selectedClass.name,emoji:"🎈",stars:0,bestCombo:0,completed:0});
       await setCredential(student,password);
       students.push(student); shared.students = students;
       markSharedChanged(); await persistShared(true); event.target.reset(); renderStudentsAdmin(); renderProfiles(); toast("Đã thêm hồ sơ.");
     });
     const progressView = {student:"",round:"",status:"",sort:"name",limit:50,open:new Set(),detailOpen:new Set(),answerFilter:new Map()};
-    function progressStatus(item, round, questionCount) {
+    function progressStatus(attempt, round, questionCount) {
+      const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
       if (!questionCount) return {label:"Chưa có câu hỏi", tone:"text-slate-500"};
-      if (round.locked && !(item?.answers?.length)) return {label:"Chưa mở", tone:"text-slate-500"};
-      if (!item?.answers?.length) return {label:"Chưa bắt đầu", tone:"text-slate-500"};
-      if (item.completedAt) return {label:"Đã hoàn thành/Đã qua", tone:"text-emerald-700"};
+      if (round.locked && !answers.length) return {label:"Chưa mở", tone:"text-slate-500"};
+      if (!answers.length) return {label:"Chưa bắt đầu", tone:"text-slate-500"};
+      if (attempt?.completedAt) return {label:"Đã hoàn thành/Đã qua", tone:"text-emerald-700"};
       return {label:"Đang làm", tone:"text-blue-700"};
     }
-    function renderProgressAnswers(student, round, item, host) {
-      const answers = Array.isArray(item?.answers) ? item.answers : [];
-      const filter = progressView.answerFilter.get(`${student.id}:${round.id}`) || "all";
+    function renderProgressAnswers(student, round, attempt, host) {
+      const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
+      const filterKey = `${student.id}:${round.id}:${attempt?.id || "unknown"}`;
+      const filter = progressView.answerFilter.get(filterKey) || "all";
       const visible = answers.filter(a => filter === "all" || (filter === "correct" ? a.correct : !a.correct));
       const counts = {all:answers.length,correct:answers.filter(a=>a.correct).length,wrong:answers.filter(a=>!a.correct).length};
-      host.innerHTML = `<div class="flex flex-wrap gap-2 mb-2"><button type="button" data-answer-filter="all" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="all"?"bg-slate-800 text-white":"bg-slate-100"}">Tất cả (${counts.all})</button><button type="button" data-answer-filter="correct" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="correct"?"bg-emerald-600 text-white":"bg-emerald-100 text-emerald-700"}">Đúng (${counts.correct})</button><button type="button" data-answer-filter="wrong" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="wrong"?"bg-rose-600 text-white":"bg-rose-100 text-rose-700"}">Sai (${counts.wrong})</button></div><div class="space-y-1">${visible.map((a,index)=>{const q=questions.find(row=>String(row.id)===String(a.questionId));const chosen=q?.options?.[a.selectedIndex]||"Chưa có dữ liệu";const correct=q?.options?.[a.correctIndex]||"Chưa có dữ liệu";return `<details class="rounded-lg bg-white p-2 text-sm"><summary class="cursor-pointer"><span class="font-black">${index+1}. ${escapeHtml(q?.q||"Câu hỏi đã bị xóa")}</span> <span class="ml-2 font-black ${a.correct?"text-emerald-700":"text-rose-700"}">${a.correct?"Đúng":"Sai"}</span></summary><div class="mt-2 text-slate-600"><p>Lựa chọn: ${escapeHtml(chosen)} · Đáp án đúng: ${escapeHtml(correct)}</p><p class="mt-1">Giải thích: ${escapeHtml(q?.explanation||"Chưa có dữ liệu")} · Thời điểm: ${escapeHtml(a.answeredAt||"Chưa có dữ liệu")}</p></div></details>`;}).join("")||'<p class="text-sm font-bold text-slate-500">Chưa có dữ liệu</p>'}</div>`;
-      host.querySelectorAll("[data-answer-filter]").forEach(button=>button.onclick=()=>{progressView.answerFilter.set(`${student.id}:${round.id}`,button.dataset.answerFilter);renderProgressAnswers(student,round,item,host);});
+      host.innerHTML = `<div class="mb-2 text-xs font-black text-slate-500">Lượt chơi · ${escapeHtml(attempt?.startedAt || "Chưa có thời điểm")}</div><div class="flex flex-wrap gap-2 mb-2"><button type="button" data-answer-filter="all" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="all"?"bg-slate-800 text-white":"bg-slate-100"}">Tất cả (${counts.all})</button><button type="button" data-answer-filter="correct" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="correct"?"bg-emerald-600 text-white":"bg-emerald-100 text-emerald-700"}">Đúng (${counts.correct})</button><button type="button" data-answer-filter="wrong" class="rounded-lg px-2 py-1 text-xs font-black ${filter==="wrong"?"bg-rose-600 text-white":"bg-rose-100 text-rose-700"}">Sai (${counts.wrong})</button></div><div class="space-y-1">${visible.map((a,index)=>{const q=questions.find(row=>String(row.id)===String(a.questionId));const chosen=q?.options?.[a.selectedIndex]||"Chưa có dữ liệu";const correct=q?.options?.[a.correctIndex]||"Chưa có dữ liệu";return `<details class="rounded-lg bg-white p-2 text-sm"><summary class="cursor-pointer"><span class="font-black">${index+1}. ${escapeHtml(q?.q||"Câu hỏi đã bị xóa")}</span> <span class="ml-2 font-black ${a.correct?"text-emerald-700":"text-rose-700"}">${a.correct?"Đúng":"Sai"}</span></summary><div class="mt-2 text-slate-600"><p>Lựa chọn: ${escapeHtml(chosen)} · Đáp án đúng: ${escapeHtml(correct)}</p><p class="mt-1">Giải thích: ${escapeHtml(q?.explanation||"Chưa có dữ liệu")} · Thời điểm: ${escapeHtml(a.answeredAt||"Chưa có dữ liệu")}</p></div></details>`;}).join("")||'<p class="text-sm font-bold text-slate-500">Chưa có dữ liệu</p>'}</div>`;
+      host.querySelectorAll("[data-answer-filter]").forEach(button=>button.onclick=()=>{progressView.answerFilter.set(filterKey,button.dataset.answerFilter);renderProgressAnswers(student,round,attempt,host);});
     }
     function renderProgressTracker() {
       const overview=document.getElementById("progress-overview"), box=document.getElementById("progress-tracker-list");
-      const pairs=students.flatMap(s=>rounds.map(r=>({s,r,item:progressHistory[progressKey(s.id,r.id)]||null,qs:questions.filter(q=>q.round===r.id)})));
-      const started=pairs.filter(x=>x.item?.answers?.length), completed=pairs.filter(x=>x.item?.completedAt), answered=started.reduce((n,x)=>n+(x.item.answers||[]).length,0), correct=started.reduce((n,x)=>n+(x.item.answers||[]).filter(a=>a.correct).length,0);
-      overview.innerHTML=[`<div class="rounded-xl bg-slate-50 p-3"><b>${students.length}</b><small class="block text-slate-500">Học sinh</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.length}</b><small class="block text-slate-500">Tổng vòng</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.filter(r=>!r.locked).length}</b><small class="block text-slate-500">Vòng đang mở</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${started.length}/${completed.length}</b><small class="block text-slate-500">Đã làm / hoàn thành</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered}</b><small class="block text-slate-500">Câu đã trả lời</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered?Math.round(correct/answered*100):0}%</b><small class="block text-slate-500">Chính xác TB</small></div>`].join("");
-      const sf=document.getElementById("progress-student-filter"),rf=document.getElementById("progress-round-filter"); if(!sf.dataset.ready){sf.innerHTML='<option value="">Tất cả học sinh</option>'+students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");rf.innerHTML='<option value="">Tất cả vòng</option>'+rounds.map(r=>`<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("");sf.dataset.ready="1";[sf,rf,document.getElementById("progress-status-filter"),document.getElementById("progress-sort")].forEach(e=>e.onchange=()=>{progressView.student=sf.value;progressView.round=rf.value;progressView.status=document.getElementById("progress-status-filter").value;progressView.sort=document.getElementById("progress-sort").value;progressView.limit=50;renderProgressTracker();});document.getElementById("progress-load-more").onclick=()=>{progressView.limit+=50;renderProgressTracker();};}
-      sf.value=progressView.student;rf.value=progressView.round; const status=progressView.status;
-      const rows=students.map(s=>{const statusKeys={"not-started":"Chưa bắt đầu","in-progress":"Đang làm","completed":"Đã hoàn thành/Đã qua","failed":"Chưa đạt","no-questions":"Chưa có câu hỏi"}; const list=pairs.filter(x=>x.s.id===s.id&&(!progressView.round||String(x.r.id)===progressView.round)&&(!progressView.status||progressStatus(x.item,x.r,x.qs.length).label===statusKeys[progressView.status]));const done=list.filter(x=>x.item?.completedAt).length, used=list.filter(x=>x.item?.answers?.length).length, total=list.length;return {s,list,done,used,total,rate:total?done/total:0};}).filter(x=>!progressView.student||String(x.s.id)===progressView.student).filter(x=>!status||x.list.some(v=>status==="no-questions"&&!v.qs.length||status==="not-started"&&!v.item?.answers?.length&&v.qs.length||status==="in-progress"&&v.item?.answers?.length&&!v.item?.completedAt||status==="completed"&&v.item?.completedAt||status==="failed"&&v.item?.answers?.length&&!v.item?.completedAt)); rows.sort((a,b)=>progressView.sort==="progress"?b.rate-a.rate:progressView.sort==="name"?a.s.name.localeCompare(b.s.name):b.done-a.done);
-      box.innerHTML=rows.slice(0,progressView.limit).map(x=>`<details class="rounded-2xl border-2 border-slate-100 p-4"><summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-2"><div><strong>${escapeHtml(x.s.name)}</strong><span class="ml-2 text-sm text-slate-500">${escapeHtml(x.s.className||x.s.id)}</span></div><span class="text-sm font-black">${x.done}/${x.total} vòng · ⭐ ${x.s.stars||0}</span></div><div class="mt-2 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-400" style="width:${x.total?x.done/x.total*100:0}%"></div></div></summary><div class="mt-3 space-y-2">${x.list.map(v=>{const answers=v.item?.answers||[];const right=answers.filter(a=>a.correct).length;const status=progressStatus(v.item,v.r,v.qs.length);const key=`${v.s.id}:${v.r.id}`;return `<div class="rounded-xl bg-slate-50 p-3 text-sm"><div class="flex flex-wrap justify-between gap-2"><b>Vòng ${escapeHtml(v.r.id)} · ${escapeHtml(v.r.name)}</b><span>${v.r.locked?'🔒 Khóa':'🔓 Mở'} · <span class="${status.tone} font-black">${status.label}</span></span></div><div class="mt-1">${answers.length||0}/${v.qs.length||0} câu · đúng ${right} · sai ${Math.max(0,answers.length-right)} · chính xác ${answers.length?Math.round(right/answers.length*100):0}% · điểm ${v.item?.score??'Chưa có dữ liệu'}</div><button type="button" data-progress-detail="${key}" class="mt-2 rounded-lg bg-white px-3 py-1 font-black text-blue-700">${progressView.detailOpen.has(key)?'Đóng':'Xem câu đúng/sai'}</button><div data-progress-answers="${key}" class="${progressView.detailOpen.has(key)?'mt-3':'hidden'}"></div></div>`;}).join("")}</div></details>`).join("")||'<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có dữ liệu phù hợp.</p>';
+      const pairs=students.flatMap(s=>getStudentRounds(s).map(r=>({s,r,item:progressHistory[progressKey(s.id,r.id)]||null,qs:questions.filter(q=>String(q.round)===String(r.id))})));
+      const started=pairs.flatMap(x=>progressAttempts(x.item).map(attempt=>({x,attempt}))).filter(x=>x.attempt.answers?.length);
+      const completed=started.filter(x=>x.attempt.completedAt);
+      const answered=started.reduce((n,x)=>n+(x.attempt.answers||[]).length,0), correct=started.reduce((n,x)=>n+(x.attempt.answers||[]).filter(a=>a.correct).length,0);
+      overview.innerHTML=[`<div class="rounded-xl bg-slate-50 p-3"><b>${students.length}</b><small class="block text-slate-500">Học sinh</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.length}</b><small class="block text-slate-500">Tổng vòng</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.filter(r=>!r.locked).length}</b><small class="block text-slate-500">Vòng đang mở</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${started.length}/${completed.length}</b><small class="block text-slate-500">Lượt đã làm / hoàn thành</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered}</b><small class="block text-slate-500">Câu đã trả lời</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered?Math.round(correct/answered*100):0}%</b><small class="block text-slate-500">Chính xác TB</small></div>`].join("");
+      const sf=document.getElementById("progress-student-filter"),rf=document.getElementById("progress-round-filter");
+      const selectedStudent=students.find(s=>String(s.id)===String(progressView.student));
+      const availableProgressRounds=selectedStudent ? getStudentRounds(selectedStudent) : rounds;
+      if (!availableProgressRounds.some(r=>String(r.id)===String(progressView.round))) progressView.round="";
+      sf.innerHTML='<option value="">Tất cả học sinh</option>'+students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");
+      rf.innerHTML='<option value="">Tất cả vòng</option>'+availableProgressRounds.map(r=>`<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("");
+      sf.value=progressView.student;
+      rf.value=progressView.round;
+      if(!sf.dataset.ready){
+        sf.dataset.ready="1";
+        [sf,rf,document.getElementById("progress-status-filter"),document.getElementById("progress-sort")].forEach(e=>e.onchange=()=>{progressView.student=sf.value;progressView.round=rf.value;progressView.status=document.getElementById("progress-status-filter").value;progressView.sort=document.getElementById("progress-sort").value;progressView.limit=50;renderProgressTracker();});
+        document.getElementById("progress-load-more").onclick=()=>{progressView.limit+=50;renderProgressTracker();};
+      }
+      const status=progressView.status;
+      const statusKeys={"not-started":"Chưa bắt đầu","in-progress":"Đang làm","completed":"Đã hoàn thành/Đã qua","failed":"Chưa đạt","no-questions":"Chưa có câu hỏi"};
+      const rows=students.map(s=>{const list=pairs.filter(x=>x.s.id===s.id&&(!progressView.round||String(x.r.id)===progressView.round)).map(x=>({...x,attempts:progressAttempts(x.item)}));const matching=list.flatMap(x=>x.attempts.map(attempt=>({x,attempt}))).filter(v=>!progressView.status||progressStatus(v.attempt,v.x.r,v.x.qs.length).label===statusKeys[progressView.status]);const done=matching.filter(v=>v.attempt.completedAt).length, used=matching.filter(v=>v.attempt.answers?.length).length, total=matching.length;return {s,list,matching,done,used,total,rate:total?done/total:0};}).filter(x=>!progressView.student||String(x.s.id)===progressView.student).filter(x=>!status||x.matching.length); rows.sort((a,b)=>progressView.sort==="progress"?b.rate-a.rate:progressView.sort==="name"?a.s.name.localeCompare(b.s.name):b.done-a.done);
+      box.innerHTML=rows.slice(0,progressView.limit).map(x=>`<details class="rounded-2xl border-2 border-slate-100 p-4"><summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-2"><div><strong>${escapeHtml(x.s.name)}</strong><span class="ml-2 text-sm text-slate-500">${escapeHtml(x.s.className||x.s.id)}</span></div><span class="text-sm font-black">${x.done}/${x.total} lượt hoàn thành · ⭐ ${x.s.stars||0}</span></div><div class="mt-2 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-400" style="width:${x.total?x.done/x.total*100:0}%"></div></div></summary><div class="mt-3 space-y-2">${x.list.map(v=>{const attempts=v.attempts.filter(attempt=>!status||progressStatus(attempt,v.r,v.qs.length).label===statusKeys[status]);if(!attempts.length)return "";return `<div class="rounded-xl bg-slate-50 p-3 text-sm"><div class="font-black mb-2">Vòng ${escapeHtml(v.r.id)} · ${escapeHtml(v.r.name)}</div><div class="space-y-2">${attempts.map((attempt,attemptIndex)=>{const answers=attempt.answers||[];const right=answers.filter(a=>a.correct).length;const statusInfo=progressStatus(attempt,v.r,v.qs.length);const key=`${v.s.id}:${v.r.id}:${attempt.id}`;return `<div class="rounded-lg bg-white p-3"><div class="flex flex-wrap justify-between gap-2"><b>Lượt ${attemptIndex+1}</b><span>${v.r.locked?'🔒 Khóa':'🔓 Mở'} · <span class="${statusInfo.tone} font-black">${statusInfo.label}</span></span></div><div class="mt-1">${answers.length||0}/${v.qs.length||0} câu · đúng ${right} · sai ${Math.max(0,answers.length-right)} · chính xác ${answers.length?Math.round(right/answers.length*100):0}% · điểm ${attempt.score??'Chưa có dữ liệu'}</div><div class="mt-1 text-xs text-slate-500">Bắt đầu: ${escapeHtml(attempt.startedAt||'Chưa có dữ liệu')}${attempt.completedAt?` · Hoàn thành: ${escapeHtml(attempt.completedAt)}`:""}</div><button type="button" data-progress-detail="${escapeHtml(key)}" class="mt-2 rounded-lg bg-slate-50 px-3 py-1 font-black text-blue-700">${progressView.detailOpen.has(key)?'Đóng':'Xem câu đúng/sai'}</button><div data-progress-answers="${escapeHtml(key)}" class="${progressView.detailOpen.has(key)?'mt-3':'hidden'}"></div></div>`;}).join("")}</div></div>`;}).join("")}</div></details>`).join("")||'<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có dữ liệu phù hợp.</p>';
       const more=document.getElementById("progress-load-more");more.classList.toggle("hidden",rows.length<=progressView.limit);more.textContent=`Tải thêm · đang hiển thị ${Math.min(progressView.limit,rows.length)}/${rows.length}`;
     }
     document.getElementById("progress-tracker-list").addEventListener("click", event => {
       const button = event.target.closest("[data-progress-detail]");
       if (!button) return;
       const key = button.dataset.progressDetail;
-      const [studentId, roundId] = key.split(":");
+      const parts = key.split(":");
+      const studentId = parts.shift();
+      const roundId = parts.shift();
+      const attemptId = parts.join(":");
       const student = students.find(s => String(s.id) === String(studentId));
       const round = rounds.find(r => String(r.id) === String(roundId));
       const item = student && round ? progressHistory[progressKey(student.id, round.id)] : null;
-      if (!student || !round) return;
+      const attempt = progressAttempts(item).find(a => String(a.id) === String(attemptId));
+      if (!student || !round || !attempt) return;
       if (progressView.detailOpen.has(key)) progressView.detailOpen.delete(key); else progressView.detailOpen.add(key);
       renderProgressTracker();
       if (progressView.detailOpen.has(key)) {
         const host = document.querySelector(`[data-progress-answers="${CSS.escape(key)}"]`);
-        if (host) renderProgressAnswers(student, round, item, host);
+        if (host) renderProgressAnswers(student, round, attempt, host);
       }
     });
     document.getElementById("settings-form").addEventListener("submit", async event => {
@@ -1420,6 +2047,7 @@
           updatedAt:shared?.updatedAt || now(),
           source:{key:SHARED_KEY,kind:confirmedCloud ? "canva-sheet-confirmed" : "local-cache-not-confirmed"},
           syncStatus:confirmedCloud ? "confirmed-cloud" : "cache-not-confirmed",
+          classes:normalizeClasses(shared?.classes),
           students:(Array.isArray(students) ? students : []).map(sanitizeStudent),
           deletedStudents:shared?.deletedStudents || defaultDeletedStudents(),
           rounds:Array.isArray(rounds) ? rounds : [],
@@ -1453,12 +2081,13 @@
           const data = JSON.parse(reader.result);
           if (!Array.isArray(data.students) || !Array.isArray(data.rounds) || !Array.isArray(data.questions)) throw new Error("invalid");
           const stamp = now();
+          const restoredClasses = normalizeClasses(data.classes);
           students = cleanStudents(data.students).map(s => touchEntity({...s,updatedAt:stamp}));
-          rounds = data.rounds.map(r => touchEntity({...r,locked:typeof r.locked === "boolean" ? r.locked : true,updatedAt:stamp}));
+          rounds = data.rounds.map(r => touchEntity({...r,classId:r?.classId != null ? String(r.classId) : "",locked:typeof r.locked === "boolean" ? r.locked : true,updatedAt:stamp}));
           questions = data.questions.map(q => touchEntity({...q,updatedAt:stamp}));
           settings = touchEntity({...settings,...(data.settings || {}),updatedAt:stamp});
           progressHistory = {};
-          shared = {...shared,students,rounds,questions,settings,progressHistory,updatedAt:stamp};
+          shared = {...shared,classes:restoredClasses,students,rounds,questions,settings,progressHistory,updatedAt:stamp,schemaVersion:4};
           markSharedChanged(); await persistShared(true);
           renderProfiles(); openTeacherTab("questions"); toast("Đã khôi phục và đồng bộ dữ liệu.");
         } catch { toast("Tệp sao lưu không hợp lệ."); }
@@ -1480,5 +2109,8 @@
     window.addEventListener("pagehide", () => { cacheShared(); });
     setInterval(() => { if (navigator.onLine && !syncing) refreshSharedData(); }, 60000);
   </script>
- 
+    <footer class="text-center py-6 px-4">
+      <p class="font-extrabold text-slate-500 text-sm">Game Designer: Cao Thế Anh đzaii</p>
+    </footer>
+ <!-- draft test -->
 </body></html>

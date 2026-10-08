@@ -500,7 +500,7 @@
 
     function now() { return new Date().toISOString(); }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&gt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char])); }
-    function normalizeRoundLocks() { rounds.forEach(r => { if (typeof r.locked !== "boolean") r.locked = true; if (!r.updatedAt) r.updatedAt = shared.updatedAt || now(); }); }
+    function normalizeRoundLocks() { rounds.forEach(r => { if (typeof r.locked !== "boolean") r.locked = true; if (r.classId != null) r.classId = String(r.classId); else r.classId = ""; if (!r.updatedAt) r.updatedAt = shared.updatedAt || now(); }); }
     function normalizeClasses(list) {
       return (Array.isArray(list) ? list : []).filter(item => item && item.id != null && String(item.name || "").trim()).map(item => ({
         ...item,
@@ -1384,7 +1384,7 @@
     }
     function newRound() {
       const id = Math.max(0,...rounds.map(r => Number(r.id) || 0))+1;
-      rounds.push(touchEntity({id,name:`Vòng ${id}`,color:"#a875ff",locked:true}));
+      rounds.push(touchEntity({id,name:`Vòng ${id}`,color:"#a875ff",locked:true,classId:""}));
       shared.rounds = rounds; markSharedChanged(); persistShared(true); renderRounds(); toast("Đã thêm vòng mới.");
     }
 
@@ -1621,7 +1621,7 @@
           const stamp = now();
           const restoredClasses = normalizeClasses(data.classes);
           students = cleanStudents(data.students).map(s => touchEntity({...s,updatedAt:stamp}));
-          rounds = data.rounds.map(r => touchEntity({...r,locked:typeof r.locked === "boolean" ? r.locked : true,updatedAt:stamp}));
+          rounds = data.rounds.map(r => touchEntity({...r,classId:r?.classId != null ? String(r.classId) : "",locked:typeof r.locked === "boolean" ? r.locked : true,updatedAt:stamp}));
           questions = data.questions.map(q => touchEntity({...q,updatedAt:stamp}));
           settings = touchEntity({...settings,...(data.settings || {}),updatedAt:stamp});
           progressHistory = {};

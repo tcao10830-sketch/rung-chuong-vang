@@ -286,7 +286,7 @@
         </div><button type="button" data-template-id="teacher-logout-button" class="canva-button rounded-xl bg-white/15 px-4 py-2 font-extrabold" onclick="logoutTeacher()" style="background: rgba(255, 255, 255, 0.15); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Đăng xuất</button>
        </div>
       </div>
-      <nav class="flex overflow-x-auto gap-2 mt-5 pb-2" aria-label="Khu vực giáo viên"><button type="button" data-template-id="tab-questions" class="canva-button teacher-tab active rounded-xl px-4 py-3 font-extrabold whitespace-nowrap" onclick="openTeacherTab('questions')" style="background: rgb(23, 37, 84); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Ngân hàng câu hỏi</button> <button type="button" data-template-id="tab-rounds" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('rounds')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Quản lý vòng</button> <button type="button" data-template-id="tab-students" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('students')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Hồ sơ học sinh</button> <button type="button" data-template-id="tab-settings" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('settings')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Cài đặt</button> <button type="button" data-template-id="tab-backup" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('backup')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Sao lưu</button>
+      <nav class="flex overflow-x-auto gap-2 mt-5 pb-2" aria-label="Khu vực giáo viên"><button type="button" data-template-id="tab-questions" class="canva-button teacher-tab active rounded-xl px-4 py-3 font-extrabold whitespace-nowrap" onclick="openTeacherTab('questions')" style="background: rgb(23, 37, 84); color: rgb(255, 255, 255); font-weight: 800; font-style: normal; font-size: 16px;">Ngân hàng câu hỏi</button> <button type="button" data-template-id="tab-rounds" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('rounds')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Quản lý vòng</button> <button type="button" data-template-id="tab-students" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('students')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Hồ sơ học sinh</button> <button type="button" data-template-id="tab-classes" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('classes')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Quản lý lớp</button> <button type="button" data-template-id="tab-settings" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('settings')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Cài đặt</button> <button type="button" data-template-id="tab-backup" class="canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap" onclick="openTeacherTab('backup')" style="background: rgb(255, 255, 255); color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Sao lưu</button>
       </nav>
       <div id="teacher-questions" class="teacher-panel mt-5">
        <div class="grid lg:grid-cols-[.9fr_1.1fr] gap-5">
@@ -334,6 +334,18 @@
          <label class="sr-only" for="progress-student-filter">Lọc học sinh</label><select id="progress-student-filter" class="rounded-xl border-2 border-slate-200 p-3"><option value="">Tất cả học sinh</option></select> <label class="sr-only" for="progress-round-filter">Lọc vòng</label><select id="progress-round-filter" class="rounded-xl border-2 border-slate-200 p-3"><option value="">Tất cả vòng</option></select> <label class="sr-only" for="progress-status-filter">Lọc trạng thái</label><select id="progress-status-filter" class="rounded-xl border-2 border-slate-200 p-3"><option value="">Mọi trạng thái</option><option value="not-started">Chưa bắt đầu</option><option value="in-progress">Đang làm</option><option value="completed">Đã hoàn thành/Đã qua</option><option value="failed">Chưa đạt</option><option value="no-questions">Chưa có câu hỏi</option></select> <label class="sr-only" for="progress-sort">Sắp xếp tiến độ</label><select id="progress-sort" class="rounded-xl border-2 border-slate-200 p-3"><option value="name">Theo tên</option><option value="progress">Theo tiến độ</option><option value="accuracy">Theo chính xác</option><option value="score">Theo điểm</option><option value="recent">Lần làm gần nhất</option></select> <button type="button" class="rounded-xl bg-slate-100 px-4 py-3 font-black" onclick="refreshSharedData()">Làm mới</button>
         </div>
         <div id="progress-tracker-list" class="mt-4 space-y-2"></div><button id="progress-load-more" type="button" class="hidden mt-4 w-full rounded-xl bg-blue-50 px-4 py-3 font-black text-blue-700">Tải thêm</button>
+       </section>
+      </div>
+      <div id="teacher-classes" class="teacher-panel hidden mt-5">
+       <section class="soft-card p-6">
+        <div class="flex flex-wrap justify-between gap-3 items-start">
+         <div>
+          <h2 data-template-id="classes-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Quản lý lớp học</h2>
+          <p data-template-id="classes-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Tạo và quản lý danh sách lớp. Ở bước này, lớp chưa được gán cho học sinh hoặc vòng chơi.</p>
+         </div>
+         <button type="button" data-template-id="new-class-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black" onclick="newClass()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm lớp</button>
+        </div>
+        <div id="class-editor" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-5"></div>
        </section>
       </div>
       <div id="teacher-settings" class="teacher-panel hidden mt-5">
@@ -1223,6 +1235,7 @@
       if (name === "questions") renderQuestionBank();
       if (name === "rounds") renderRounds();
       if (name === "students") { renderStudentsAdmin(); renderProgressTracker(); }
+      if (name === "classes") renderClassesAdmin();
       if (name === "settings") {
         document.getElementById("timer-setting").value = settings.time;
         document.getElementById("sound-setting").checked = settings.sound;
@@ -1356,6 +1369,61 @@
       const id = Math.max(0,...rounds.map(r => Number(r.id) || 0))+1;
       rounds.push(touchEntity({id,name:`Vòng ${id}`,color:"#a875ff",locked:true}));
       shared.rounds = rounds; markSharedChanged(); persistShared(true); renderRounds(); toast("Đã thêm vòng mới.");
+    }
+
+    function renderClassesAdmin() {
+      const box = document.getElementById("class-editor");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!classes.length) {
+        box.innerHTML = '<p class="md:col-span-2 xl:col-span-3 rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có lớp nào. Bấm “+ Thêm lớp” để tạo lớp đầu tiên.</p>';
+        return;
+      }
+      classes.forEach(cls => {
+        const card = document.createElement("article");
+        card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
+        card.innerHTML = `<span class="inline-block rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-black">LỚP HỌC</span><label class="block text-sm font-extrabold mt-4" for="class-name-${escapeHtml(cls.id)}">Tên lớp</label><input id="class-name-${escapeHtml(cls.id)}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(cls.name)}"><p class="text-xs font-bold text-slate-400 mt-2">ID: ${escapeHtml(cls.id)}</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save-class rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="delete-class rounded-xl bg-rose-100 px-4 py-2 font-black text-rose-700">Xóa lớp</button></div>`;
+        card.querySelector(".save-class").onclick = async () => {
+          const input = card.querySelector("input");
+          const name = input?.value.trim();
+          if (!name) return toast("Tên lớp không được để trống.");
+          const duplicate = classes.some(other => String(other.id) !== String(cls.id) && String(other.name).trim().toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"));
+          if (duplicate) return toast("Tên lớp này đã tồn tại.");
+          cls.name = name;
+          touchEntity(cls);
+          shared.classes = classes;
+          markSharedChanged();
+          await persistShared(true);
+          renderClassesAdmin();
+          toast("Đã cập nhật tên lớp.");
+        };
+        card.querySelector(".delete-class").onclick = async () => {
+          if (!confirm(`Xóa lớp “${cls.name}”?`)) return;
+          classes = classes.filter(item => String(item.id) !== String(cls.id));
+          shared.classes = classes;
+          markSharedChanged();
+          await persistShared(true);
+          renderClassesAdmin();
+          toast("Đã xóa lớp.");
+        };
+        box.appendChild(card);
+      });
+    }
+
+    async function newClass() {
+      const rawName = prompt("Nhập tên lớp mới:", "11A1");
+      if (rawName === null) return;
+      const name = rawName.trim();
+      if (!name) return toast("Tên lớp không được để trống.");
+      const duplicate = classes.some(cls => String(cls.name).trim().toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"));
+      if (duplicate) return toast("Tên lớp này đã tồn tại.");
+      const id = `class-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      classes.push(touchEntity({id,name}));
+      shared.classes = classes;
+      markSharedChanged();
+      await persistShared(true);
+      renderClassesAdmin();
+      toast("Đã thêm lớp.");
     }
 
     function renderStudentsAdmin() {

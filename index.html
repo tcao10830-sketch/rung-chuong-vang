@@ -319,7 +319,7 @@
       <div id="teacher-students" class="teacher-panel hidden mt-5">
        <div class="grid lg:grid-cols-[.8fr_1.2fr] gap-5">
         <form id="student-form" class="soft-card p-6">
-         <h2 data-template-id="student-form-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Tạo hồ sơ học sinh</h2><label data-template-id="student-name-label" class="canva-text block font-extrabold mt-4" for="student-name" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Tên học sinh</label> <input id="student-name" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-class-label" class="canva-text block font-extrabold mt-4" for="student-class" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Lớp</label> <input id="student-class" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-password-label" class="canva-text block font-extrabold mt-4" for="student-password" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Mật khẩu hồ sơ</label> <input id="student-password" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-password-confirm-label" class="canva-text block font-extrabold mt-4" for="student-password-confirm" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Xác nhận mật khẩu</label> <input id="student-password-confirm" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <button type="submit" data-template-id="add-student-button" class="canva-button action rounded-xl px-5 py-3 font-black mt-5" style="background: rgb(79, 135, 255); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">Thêm hồ sơ</button>
+         <h2 data-template-id="student-form-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Tạo hồ sơ học sinh</h2><label data-template-id="student-name-label" class="canva-text block font-extrabold mt-4" for="student-name" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Tên học sinh</label> <input id="student-name" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-class-label" class="canva-text block font-extrabold mt-4" for="student-class" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Lớp</label> <select id="student-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chọn lớp</option></select> <p class="text-xs font-bold text-slate-500 mt-2">Lớp được chọn sẽ được lưu bằng classId. Thông tin className cũ vẫn được giữ để tương thích dữ liệu.</p> <label data-template-id="student-password-label" class="canva-text block font-extrabold mt-4" for="student-password" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Mật khẩu hồ sơ</label> <input id="student-password" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <label data-template-id="student-password-confirm-label" class="canva-text block font-extrabold mt-4" for="student-password-confirm" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Xác nhận mật khẩu</label> <input id="student-password-confirm" type="password" minlength="6" required="" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"> <button type="submit" data-template-id="add-student-button" class="canva-button action rounded-xl px-5 py-3 font-black mt-5" style="background: rgb(79, 135, 255); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">Thêm hồ sơ</button>
         </form>
         <section class="soft-card p-6">
          <h2 data-template-id="student-list-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Danh sách học sinh</h2>
@@ -341,7 +341,7 @@
         <div class="flex flex-wrap justify-between gap-3 items-start">
          <div>
           <h2 data-template-id="classes-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Quản lý lớp học</h2>
-          <p data-template-id="classes-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Tạo và quản lý danh sách lớp. Ở bước này, lớp chưa được gán cho học sinh hoặc vòng chơi.</p>
+          <p data-template-id="classes-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Tạo và quản lý danh sách lớp. Học sinh có thể được gán vào lớp từ mục Hồ sơ học sinh.</p>
          </div>
          <button type="button" data-template-id="new-class-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black" onclick="newClass()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm lớp</button>
         </div>
@@ -427,8 +427,24 @@
     function isDeletedSampleStudent(student) {
       return LEGACY_STUDENT_IDS.has(String(student?.id)) || LEGACY_STUDENT_NAMES.has(String(student?.name || ""));
     }
+    function normalizeStudents(list) {
+      return (Array.isArray(list) ? list : [])
+        .filter(student => !isDeletedSampleStudent(student))
+        .map(student => ({
+          ...student,
+          classId: student?.classId != null ? String(student.classId) : ""
+        }));
+    }
     function cleanStudents(list) {
-      return (Array.isArray(list) ? list : []).filter(student => !isDeletedSampleStudent(student));
+      return normalizeStudents(list);
+    }
+    function getClassById(classId) {
+      const normalized = String(classId ?? "");
+      return classes.find(item => String(item.id) === normalized) || null;
+    }
+    function getStudentClassName(student) {
+      const linkedClass = getClassById(student?.classId);
+      return linkedClass?.name || String(student?.className || "").trim() || "Chưa xếp lớp";
     }
     function defaultDeletedStudents() {
       const stamp = now();
@@ -496,9 +512,10 @@
     function bindShared() {
       shared.classes = normalizeClasses(shared.classes);
       shared.deletedStudents = {...defaultDeletedStudents(), ...(shared.deletedStudents || {})};
-      shared.students = cleanStudents(shared.students);
+      shared.students = normalizeStudents(shared.students);
       classes = shared.classes || [];
-      students = shared.students || [];
+      students = normalizeStudents(shared.students);
+      shared.students = students;
       rounds = shared.rounds || [];
       questions = shared.questions || [];
       settings = {...{time:20,sound:true}, ...(shared.settings || {})};
@@ -1044,7 +1061,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "profile-card soft-card p-4 text-center font-black";
-        button.innerHTML = `<span class="text-4xl">${student.emoji || "🎈"}</span><strong class="block mt-2">${escapeHtml(student.name)}</strong><span class="block text-sm text-slate-500">${escapeHtml(student.className)}</span><span class="block mt-2 text-yellow-500">⭐ ${student.stars || 0}</span>`;
+        button.innerHTML = `<span class="text-4xl">${student.emoji || "🎈"}</span><strong class="block mt-2">${escapeHtml(student.name)}</strong><span class="block text-sm text-slate-500">${escapeHtml(getStudentClassName(student))}</span><span class="block mt-2 text-yellow-500">⭐ ${student.stars || 0}</span>`;
         button.onclick = () => openAuthModal("student-login",student.id);
         list.appendChild(button);
       });
@@ -1426,9 +1443,40 @@
       toast("Đã thêm lớp.");
     }
 
+    function renderStudentClassSelect(select, selectedId = "") {
+      if (!select) return;
+      const normalized = String(selectedId ?? "");
+      select.innerHTML = '<option value="">Chưa xếp lớp</option>' +
+        classes.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("");
+      select.value = normalized;
+    }
+    function renderStudentFormClassSelect() {
+      renderStudentClassSelect(document.getElementById("student-class"), "");
+    }
+    async function updateStudentClass(studentId, classId) {
+      const student = findStudentById(studentId);
+      if (!student) return;
+      const selectedClassId = String(classId ?? "");
+      const linkedClass = getClassById(selectedClassId);
+      student.classId = selectedClassId;
+      // Keep the legacy text field for backward compatibility.
+      student.className = linkedClass?.name || student.className || "";
+      touchEntity(student);
+      shared.students = students;
+      markSharedChanged();
+      await persistShared(true);
+      renderStudentsAdmin();
+      renderProfiles();
+      toast(linkedClass ? `Đã chuyển ${student.name} vào ${linkedClass.name}.` : `Đã bỏ xếp lớp cho ${student.name}.`);
+    }
     function renderStudentsAdmin() {
       const box = document.getElementById("teacher-student-list");
-      box.innerHTML = students.map(s => `<article class="rounded-2xl border-2 border-slate-100 p-4"><div class="flex flex-wrap justify-between gap-3 items-center"><div><strong>${s.emoji || "🎈"} ${escapeHtml(s.name)}</strong><span class="ml-2 text-slate-500">${escapeHtml(s.className)}</span><p class="text-sm font-bold text-yellow-600">⭐ ${s.stars || 0}</p></div><div class="flex gap-2"><button type="button" class="rounded-lg bg-blue-100 text-blue-700 px-3 py-2 font-black text-sm" onclick="openAuthModal('student-reset','${s.id}')">Mật khẩu</button><button type="button" class="rounded-lg bg-rose-100 text-rose-700 px-3 py-2 font-black text-sm" onclick="deleteStudent('${s.id}')">Xóa</button></div></div></article>`).join("") || '<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có hồ sơ.</p>';
+      box.innerHTML = students.map(s => `<article class="rounded-2xl border-2 border-slate-100 p-4"><div class="flex flex-wrap justify-between gap-3 items-center"><div class="min-w-0"><strong>${s.emoji || "🎈"} ${escapeHtml(s.name)}</strong><p class="text-sm font-bold text-slate-500 mt-1">Lớp hiện tại: <span class="text-slate-700">${escapeHtml(getStudentClassName(s))}</span></p><p class="text-sm font-bold text-yellow-600">⭐ ${s.stars || 0}</p></div><div class="flex flex-wrap gap-2 items-center"><select class="rounded-lg border-2 border-slate-200 px-3 py-2 font-bold text-sm" aria-label="Chọn lớp cho ${escapeHtml(s.name)}" onchange="updateStudentClass('${s.id}', this.value)"></select><button type="button" class="rounded-lg bg-blue-100 text-blue-700 px-3 py-2 font-black text-sm" onclick="openAuthModal('student-reset','${s.id}')">Mật khẩu</button><button type="button" class="rounded-lg bg-rose-100 text-rose-700 px-3 py-2 font-black text-sm" onclick="deleteStudent('${s.id}')">Xóa</button></div></div></article>`).join("") || '<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có hồ sơ.</p>';
+      box.querySelectorAll("select[aria-label]").forEach((select, index) => {
+        const student = students[index];
+        renderStudentClassSelect(select, student?.classId || "");
+      });
+      renderStudentFormClassSelect();
     }
     async function deleteStudent(id) {
       const removed = students.find(s => String(s.id) === String(id));
@@ -1444,7 +1492,10 @@
       event.preventDefault();
       const password = document.getElementById("student-password").value;
       if (password !== document.getElementById("student-password-confirm").value) return toast("Xác nhận mật khẩu chưa khớp.");
-      const student = touchEntity({id:`s-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:document.getElementById("student-name").value.trim(),className:document.getElementById("student-class").value.trim(),emoji:"🎈",stars:0,bestCombo:0,completed:0});
+      const selectedClassId = String(document.getElementById("student-class").value || "");
+      const selectedClass = getClassById(selectedClassId);
+      if (!selectedClass) return toast("Hãy chọn một lớp trước khi tạo hồ sơ.");
+      const student = touchEntity({id:`s-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:document.getElementById("student-name").value.trim(),classId:selectedClassId,className:selectedClass.name,emoji:"🎈",stars:0,bestCombo:0,completed:0});
       await setCredential(student,password);
       students.push(student); shared.students = students;
       markSharedChanged(); await persistShared(true); event.target.reset(); renderStudentsAdmin(); renderProfiles(); toast("Đã thêm hồ sơ.");

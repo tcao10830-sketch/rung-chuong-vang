@@ -1362,6 +1362,26 @@
       markSharedChanged(); persistShared(true); event.target.reset(); renderQuestionBank(); toast("Đã lưu câu hỏi.");
     });
 
+    function renderRoundClassSelect(select, selectedId = "") {
+      if (!select) return;
+      const normalized = String(selectedId ?? "");
+      select.innerHTML = '<option value="">Chưa xếp lớp</option>' + classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("");
+      select.value = normalized;
+    }
+
+    async function updateRoundClass(roundId, classId) {
+      const round = rounds.find(item => String(item.id) === String(roundId));
+      if (!round) return;
+      round.classId = String(classId ?? "");
+      touchEntity(round);
+      shared.rounds = rounds;
+      markSharedChanged();
+      await persistShared(true);
+      renderRounds();
+      const className = getClassById(round.classId)?.name;
+      toast(className ? `Đã gán ${className} cho vòng ${round.id}.` : `Đã bỏ xếp lớp cho vòng ${round.id}.`);
+    }
+
     function renderRounds() {
       const box = document.getElementById("round-editor");
       box.innerHTML = "";
@@ -1369,7 +1389,13 @@
         const count = questions.filter(q => q.round === round.id).length;
         const card = document.createElement("article");
         card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
-        card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
+        card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
+        const classSelect = card.querySelector(`#round-class-${round.id}`);
+        renderRoundClassSelect(classSelect, round.classId);
+        classSelect.onchange = async () => {
+          await updateRoundClass(round.id, classSelect.value);
+        };
+
         card.querySelector(".save").onclick = () => {
           round.name = card.querySelector(`#round-name-${round.id}`).value.trim() || round.name;
           touchEntity(round); markSharedChanged(); persistShared(true); renderRounds();
@@ -1412,6 +1438,7 @@
           markSharedChanged();
           await persistShared(true);
           renderClassesAdmin();
+          renderRounds();
           toast("Đã cập nhật tên lớp.");
         };
         card.querySelector(".delete-class").onclick = async () => {
@@ -1421,6 +1448,7 @@
           markSharedChanged();
           await persistShared(true);
           renderClassesAdmin();
+          renderRounds();
           toast("Đã xóa lớp.");
         };
         box.appendChild(card);
@@ -1440,6 +1468,7 @@
       markSharedChanged();
       await persistShared(true);
       renderClassesAdmin();
+      renderRounds();
       toast("Đã thêm lớp.");
     }
 

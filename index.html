@@ -392,6 +392,27 @@
      <div id="bulk-import-result" class="mt-5 space-y-2" aria-live="polite"></div>
     </div>
    </div>
+   <div id="new-round-modal" class="modal fixed inset-0 z-50 items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="new-round-title">
+     <div class="soft-card w-full max-w-md p-6 md:p-8">
+      <div class="flex justify-between gap-4 items-start">
+       <div>
+        <p class="text-sm font-black text-orange-500">QUẢN LÝ VÒNG</p>
+        <h2 id="new-round-title" class="fun-title text-3xl mt-1">Thêm vòng mới</h2>
+       </div>
+       <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" onclick="closeNewRoundModal()" aria-label="Đóng">×</button>
+      </div>
+      <form id="new-round-form" class="mt-5">
+       <label class="block font-extrabold" for="new-round-class">Lớp</label>
+       <select id="new-round-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
+       <label class="block font-extrabold mt-4" for="new-round-name">Tên vòng</label>
+       <input id="new-round-name" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
+       <div class="flex flex-wrap gap-3 mt-5">
+        <button type="button" class="rounded-xl bg-slate-100 px-5 py-3 font-black" onclick="closeNewRoundModal()">Hủy</button>
+        <button id="new-round-submit" type="submit" class="action rounded-xl bg-yellow-300 px-5 py-3 font-black">Tạo vòng</button>
+       </div>
+      </form>
+     </div>
+    </div>
    <div id="auth-modal" class="modal fixed inset-0 z-50 items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <div class="soft-card w-full max-w-md p-6 md:p-8">
      <div class="flex justify-between gap-4 items-start">
@@ -1550,6 +1571,75 @@
       renderRounds();
       toast("Đã thêm lớp.");
     }
+
+    function openNewRoundModal() {
+      const modal = document.getElementById("new-round-modal");
+      const classSelect = document.getElementById("new-round-class");
+      const nameInput = document.getElementById("new-round-name");
+      if (!modal || !classSelect || !nameInput) return;
+
+      classSelect.innerHTML =
+        '<option value="">Chọn lớp</option>' +
+        classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("") +
+        '<option value="__unassigned__">Chưa xếp lớp</option>';
+
+      const nextId = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
+      nameInput.value = `Vòng ${nextId}`;
+      classSelect.value = roundClassFilter && roundClassFilter !== "__unassigned__" &&
+        getClassById(roundClassFilter) ? roundClassFilter : "";
+
+      modal.classList.add("open");
+      setTimeout(() => classSelect.focus(), 0);
+    }
+
+    function closeNewRoundModal() {
+      const modal = document.getElementById("new-round-modal");
+      if (modal) modal.classList.remove("open");
+    }
+
+    function newRound() {
+      if (!validTeacherSession()) return requestTeacherAccess();
+      openNewRoundModal();
+    }
+
+    document.getElementById("new-round-form").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const classValue = document.getElementById("new-round-class").value;
+      const nameInput = document.getElementById("new-round-name");
+      const submitButton = document.getElementById("new-round-submit");
+      const name = nameInput.value.trim();
+
+      if (!classValue) return toast("Hãy chọn lớp cho vòng.");
+      if (!name) return toast("Tên vòng không được để trống.");
+
+      const id = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
+      const classId = classValue === "__unassigned__" ? "" : String(classValue);
+
+      submitButton.disabled = true;
+      try {
+        rounds.push(touchEntity({
+          id,
+          name,
+          color: "#a875ff",
+          locked: true,
+          classId
+        }));
+        shared.rounds = rounds;
+        markSharedChanged();
+        await persistShared(true);
+        closeNewRoundModal();
+        renderRounds();
+        toast(classId
+          ? `Đã thêm ${name} vào ${getClassById(classId)?.name || "lớp đã chọn"}.`
+          : `Đã thêm ${name}.`);
+      } catch (error) {
+        console.error("Create round error:", error);
+        toast("Không thể tạo vòng. Vui lòng thử lại.");
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
 
     function renderStudentClassSelect(select, selectedId = "") {
       if (!select) return;

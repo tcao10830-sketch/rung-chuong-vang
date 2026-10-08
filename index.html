@@ -21,8 +21,19 @@
     .profile-card:hover { transform:translateY(-5px); border-color:var(--yellow); }
     .choice { border:3px solid #e7eefc; transition:.18s; }
     .choice:hover:not(:disabled) { border-color:#4f87ff; transform:translateX(4px); }
-    .choice.correct { background:#dcfce7; border-color:#38c98b; }
-    .choice.wrong { background:#ffe1e4; border-color:#ef5b68; }
+    .choice.correct { background:#dcfce7; border-color:#38c98b; animation:correctPop .42s ease both; }
+    .choice.wrong { background:#ffe1e4; border-color:#ef5b68; animation:wrongShake .42s ease both; }
+    .reward-fx-layer { position:fixed; inset:0; z-index:80; pointer-events:none; overflow:hidden; }
+    .reward-fx { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); font-family:"Nunito",sans-serif; font-weight:900; text-align:center; white-space:nowrap; animation:rewardPop .9s ease both; filter:drop-shadow(0 8px 14px rgba(36,48,74,.16)); }
+    .reward-fx .reward-main { font-size:clamp(2rem,7vw,4rem); line-height:1; }
+    .reward-fx .reward-sub { margin-top:.45rem; font-size:clamp(1rem,3vw,1.4rem); color:#475569; }
+    .reward-spark { position:absolute; left:50%; top:42%; font-size:1.8rem; animation:sparkFly .75s ease-out both; }
+    .reward-combo { position:absolute; right:1.2rem; top:6rem; padding:.65rem 1rem; border-radius:999px; background:#fff7cc; border:2px solid #ffd84d; color:#9a6700; font-weight:900; animation:comboPop .7s ease both; box-shadow:0 8px 24px rgba(36,48,74,.12); }
+    @keyframes correctPop { 0%{transform:scale(.98)} 55%{transform:scale(1.025)} 100%{transform:scale(1)} }
+    @keyframes wrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 50%{transform:translateX(7px)} 75%{transform:translateX(-4px)} }
+    @keyframes rewardPop { 0%{opacity:0;transform:translate(-50%,-35%) scale(.65)} 18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)} 72%{opacity:1;transform:translate(-50%,-58%) scale(1)} 100%{opacity:0;transform:translate(-50%,-78%) scale(.92)} }
+    @keyframes sparkFly { 0%{opacity:0;transform:translate(-50%,-50%) scale(.4)} 20%{opacity:1} 100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(24deg) scale(1.1)} }
+    @keyframes comboPop { 0%{opacity:0;transform:translateY(-12px) scale(.8)} 25%{opacity:1;transform:translateY(0) scale(1.05)} 100%{opacity:0;transform:translateY(-8px) scale(1)} }
     .teacher-tab.active { background:#172554; color:#fff; }
     .toast { opacity:0; transform:translateY(12px) translateX(-50%); pointer-events:none; transition:.25s; }
     .toast.show { opacity:1; transform:translateY(0) translateX(-50%); }
@@ -398,7 +409,7 @@
        <h2 data-template-id="bulk-import-title" class="canva-text fun-title text-3xl mt-1" style="color: rgb(36, 48, 74); font-weight: 400; font-style: normal; font-size: 24px;">Nhập nhanh nhiều câu hỏi</h2>
       </div><button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" onclick="closeBulkImportModal()" aria-label="Đóng">×</button>
      </div>
-     <p data-template-id="bulk-import-instructions" class="canva-text font-semibold text-slate-500 mt-3" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Mỗi dòng: từ | nghĩa | nội dung câu hỏi | đáp án đúng | lựa chọn 1; lựa chọn 2; ... | độ khó | giải thích | vòng | ảnh URL | audio URL | video URL. Có thể bỏ các trường cuối.</p><label data-template-id="bulk-import-round-label" class="canva-text block font-extrabold mt-4" for="bulk-import-round" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Vòng mặc định</label><select id="bulk-import-round" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select> <label data-template-id="bulk-import-input-label" class="canva-text block font-extrabold mt-4" for="bulk-import-input" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Dữ liệu câu hỏi</label><textarea id="bulk-import-input" rows="9" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3 font-mono text-sm" placeholder="Từ | Nghĩa | Câu hỏi | Đáp án đúng | Lựa chọn 1; Lựa chọn 2 | DỄ | Giải thích | 1 | https://...jpg | https://...mp3 | https://...mp4"></textarea>
+     <p data-template-id="bulk-import-instructions" class="canva-text font-semibold text-slate-500 mt-3" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Mỗi dòng: từ | nghĩa | nội dung câu hỏi | đáp án đúng | lựa chọn 1; lựa chọn 2; ... | độ khó | giải thích | vòng | ảnh URL | audio URL | video URL. Có thể bỏ các trường cuối.</p><label data-template-id="bulk-import-class-label" class="canva-text block font-extrabold mt-4" for="bulk-import-class" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Lớp</label><select id="bulk-import-class" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select><label data-template-id="bulk-import-round-label" class="canva-text block font-extrabold mt-4" for="bulk-import-round" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Vòng mặc định</label><select id="bulk-import-round" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3"></select> <label data-template-id="bulk-import-input-label" class="canva-text block font-extrabold mt-4" for="bulk-import-input" style="color: rgb(36, 48, 74); font-weight: 800; font-style: normal; font-size: 16px;">Dữ liệu câu hỏi</label><textarea id="bulk-import-input" rows="9" class="mt-1 w-full rounded-xl border-2 border-slate-200 p-3 font-mono text-sm" placeholder="Từ | Nghĩa | Câu hỏi | Đáp án đúng | Lựa chọn 1; Lựa chọn 2 | DỄ | Giải thích | 1 | https://...jpg | https://...mp3 | https://...mp4"></textarea>
      <div class="flex flex-wrap gap-3 mt-4">
       <button type="button" data-template-id="bulk-preview-button" class="canva-button action rounded-xl bg-blue-100 px-5 py-3 font-black text-blue-700" onclick="previewBulkImport()" style="background: rgb(219, 234, 254); color: rgb(29, 78, 216); font-weight: 900; font-style: normal; font-size: 16px;">XEM TRƯỚC</button><button type="button" id="bulk-save-button" data-template-id="bulk-save-button" class="canva-button action rounded-xl bg-emerald-500 px-5 py-3 font-black text-white" onclick="saveBulkImport()" disabled="" style="background: rgb(16, 185, 129); color: rgb(255, 255, 255); font-weight: 900; font-style: normal; font-size: 16px;">LƯU HÀNG LOẠT</button>
      </div>
@@ -443,6 +454,7 @@
     </div>
    </div>
    <div id="toast" class="toast fixed bottom-5 left-1/2 z-[60] rounded-full bg-slate-900 px-5 py-3 text-white font-extrabold shadow-xl" role="status"></div>
+   <div id="reward-fx-layer" class="reward-fx-layer" aria-hidden="true"></div>
   </div>
   <script>
     const CACHE_KEY = "rung-chuong-vang-shared-cache-v19-draft";
@@ -1152,7 +1164,7 @@
       return Math.min(maxStars,progressAttempts(item).reduce((total,attempt) => {
         if (!attempt.completedAt) return total;
         const correct = (attempt.answers || []).filter(answer => answer.correct).length;
-        return total + correct;
+        return Math.min(maxStars,total + correct);
       },0));
     }
 
@@ -1184,9 +1196,9 @@
         return `<article class="rounded-2xl border-2 border-slate-100 p-4 bg-white">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0"><div class="font-black">Vòng ${escapeHtml(round.id)} · ${escapeHtml(round.name)}</div><div class="text-sm font-bold text-slate-500 mt-1">${state} · ${completedAttempts.length} lượt hoàn thành</div></div>
-            <div class="text-right"><div class="text-lg font-black text-yellow-600">⭐ ${roundStars}</div><div class="text-xs font-bold text-slate-400">sao của vòng</div></div>
+            <div class="text-right"><div class="text-lg font-black text-yellow-600">⭐ ${roundStars}/${qsCount || 0}</div><div class="text-xs font-bold text-slate-400">sao của vòng</div></div>
           </div>
-          <div class="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-2 rounded-full bg-yellow-400" style="width:${progress}%"></div></div>
+          <div class="mt-3 h-3 rounded-full bg-slate-100 overflow-hidden"><div class="h-3 rounded-full bg-yellow-400 transition-all duration-700" style="width:${roundStars && qsCount ? Math.round(roundStars / qsCount * 100) : 0}%"></div></div>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-500"><span>${qsCount ? `${bestCorrect}/${qsCount} câu đúng ở lượt tốt nhất` : "Chưa có câu hỏi"}</span><span class="rounded-full px-2 py-1 ${stateClass}">${state}</span></div>
         </article>`;
       }).join("");
@@ -1249,7 +1261,7 @@
       if (!quizQuestions.length) return toast("Vòng này chưa có câu hỏi.");
 
       currentAttemptId = `attempt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      questionIndex = 0; score = 0;
+      questionIndex = 0; score = 0; currentCombo = 0;
       showScreen("quiz-screen"); renderQuestion();
     }
     function safeMediaUrl(value) {
@@ -1344,25 +1356,62 @@
       touchEntity(item);
       progressHistory[key] = item;
     }
+    function showRewardFx(main,sub="",combo=0) {
+      const layer = document.getElementById("reward-fx-layer");
+      if (!layer) return;
+      const wrap = document.createElement("div");
+      wrap.className = "reward-fx";
+      wrap.innerHTML = `<div class="reward-main">${main}</div>${sub ? `<div class="reward-sub">${sub}</div>` : ""}`;
+      layer.appendChild(wrap);
+      ["⭐","✨","🌟","💫","⭐","✨"].forEach((symbol,i) => {
+        const spark = document.createElement("span");
+        spark.className = "reward-spark"; spark.textContent = symbol;
+        spark.style.setProperty("--dx", `${[-110,-65,70,120,-35,40][i]}px`);
+        spark.style.setProperty("--dy", `${[-65,-115,-95,-35,105,125][i]}px`);
+        spark.style.animationDelay = `${i*35}ms`;
+        layer.appendChild(spark); setTimeout(() => spark.remove(), 900);
+      });
+      setTimeout(() => wrap.remove(), 950);
+      if (combo >= 2) {
+        const badge = document.createElement("div"); badge.className = "reward-combo";
+        badge.textContent = `🔥 Combo x${combo}`; layer.appendChild(badge);
+        setTimeout(() => badge.remove(), 750);
+      }
+    }
+    function showWrongFx() {
+      const layer = document.getElementById("reward-fx-layer"); if (!layer) return;
+      const wrap = document.createElement("div"); wrap.className = "reward-fx";
+      wrap.innerHTML = `<div class="reward-main">💥</div><div class="reward-sub">Này? Chép phạt nhé?</div>`;
+      layer.appendChild(wrap); setTimeout(() => wrap.remove(), 950);
+    }
+
     function answerQuestion(index) {
       if (answered) return;
       answered = true;
       const q = quizQuestions[questionIndex];
       const correct = index === q.correct;
-      if (correct) playCorrectSound(); else playWrongSound();
+      if (correct) { currentCombo += 1; playCorrectSound(); }
+      else { currentCombo = 0; playWrongSound(); }
       recordProgress(q,index,correct);
       document.querySelectorAll("#answer-list button").forEach((button,i) => {
         button.disabled = true;
         if (i === q.correct) button.classList.add("correct");
         if (i === index && !correct) button.classList.add("wrong");
       });
-      if (correct) { score += 100; document.getElementById("quiz-feedback").textContent = "Chính xác! +100 điểm ⭐"; }
-      else document.getElementById("quiz-feedback").textContent = "Chưa đúng, cùng cố gắng nhé!";
+      if (correct) {
+        score += 100;
+        document.getElementById("quiz-feedback").textContent = currentCombo >= 2 ? `Chính xác! 🔥 Combo x${currentCombo}` : "Chính xác! +100 điểm ⭐";
+        showRewardFx(currentCombo >= 2 ? "🔥" : "⭐", currentCombo >= 2 ? `Đúng ${currentCombo} câu liên tiếp!` : "+100 điểm", currentCombo);
+      } else {
+        document.getElementById("quiz-feedback").textContent = "Chưa tày đâu!";
+        showWrongFx();
+      }
       persistShared(true);
       setTimeout(() => { questionIndex++; questionIndex < quizQuestions.length ? renderQuestion() : finishQuiz(false); },1000);
     }
     function finishQuiz(quit) {
       let earnedStarsThisRound = 0;
+      let roundCompletedThisTime = false;
       if (!quit && activeStudent && activeStudent.id !== "guest") {
         const item = progressHistory[progressKey(activeStudent.id,currentRound)];
         const attempt = progressAttempts(item).find(a => String(a.id) === String(currentAttemptId));
@@ -1375,6 +1424,7 @@
           const remainingStars = Math.max(0,maxRoundStars - currentRoundStars);
           const earnedStars = Math.min(correctThisAttempt,remainingStars);
           earnedStarsThisRound = earnedStars;
+          roundCompletedThisTime = maxRoundStars > 0 && currentRoundStars + earnedStars >= maxRoundStars;
           activeStudent.stars = (activeStudent.stars || 0) + earnedStars;
           activeStudent.roundStars = {...(activeStudent.roundStars || {})};
           activeStudent.roundStars[roundKey] = Math.min(maxRoundStars,currentRoundStars + earnedStars);
@@ -1393,6 +1443,8 @@
         ? `Tuyệt vời! Em vừa nhận +${earnedStarsThisRound} ⭐ cho vòng này.`
         : "Kết quả lượt chơi đã được ghi nhận.";
       document.getElementById("result-score").textContent = score;
+      document.getElementById("result-emoji").textContent = roundCompletedThisTime ? "🏆" : earnedStarsThisRound > 0 ? "🎉" : "✨";
+      if (roundCompletedThisTime) showRewardFx("🏆", "Hoàn thành phần thưởng của vòng!");
       showScreen("result-screen");
     }
     function renderAchievements() {
@@ -1445,25 +1497,41 @@
     }
     let bulkImportRows = [];
     function openBulkImportModal() {
-      const select = document.getElementById("bulk-import-round");
-      select.innerHTML = rounds.length ? rounds.map(r => `<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("") : '<option value="">Chưa có vòng</option>';
+      const classSelect = document.getElementById("bulk-import-class");
+      const roundSelect = document.getElementById("bulk-import-round");
+      classSelect.innerHTML = '<option value="">Chọn lớp</option>' + classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("");
+      roundSelect.innerHTML = '<option value="">Chọn lớp trước</option>';
+      classSelect.onchange = () => {
+        const classId = String(classSelect.value || "");
+        const classRounds = classId
+          ? rounds.filter(r => String(r.classId ?? "") === classId)
+          : [];
+        roundSelect.innerHTML = classRounds.length
+          ? classRounds.map(r => `<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("")
+          : '<option value="">Lớp này chưa có vòng</option>';
+      };
       document.getElementById("bulk-import-input").value = "";
-      document.getElementById("bulk-import-result").textContent = rounds.length ? "" : "Chưa có vòng chơi. Hãy tạo vòng trước hoặc nhập dữ liệu để xem lỗi.";
+      document.getElementById("bulk-import-result").textContent = classes.length
+        ? ""
+        : "Chưa có lớp. Hãy tạo lớp trước.";
       document.getElementById("bulk-save-button").disabled = true;
       bulkImportRows = [];
       document.getElementById("bulk-import-modal").classList.add("open");
     }
     function closeBulkImportModal() { document.getElementById("bulk-import-modal").classList.remove("open"); bulkImportRows = []; }
     function parseBulkImport() {
+      const selectedClass = document.getElementById("bulk-import-class").value;
       const defaultRound = document.getElementById("bulk-import-round").value;
       const lines = document.getElementById("bulk-import-input").value.split(/\r?\n/).map((text,index) => ({text,index:index+1})).filter(row => row.text.trim());
-      const knownRounds = new Set(rounds.map(r => String(r.id)));
+      const knownRounds = new Map(rounds.map(r => [String(r.id), r]));
+      const selectedClassExists = classes.some(cls => String(cls.id) === String(selectedClass));
       return lines.map(row => {
         const fields = row.text.split("|").map(value => value.trim());
         const errors = [];
         if (fields.length < 7 || fields.length > 11) errors.push("cần 7 đến 11 trường");
         const [word,meaning,q,correct,choiceText,difficulty,explanation,roundValue,imageUrl,audioUrl,videoUrl] = fields;
         const options = (choiceText || "").split(";").map(value => value.trim()).filter(Boolean);
+        if (!selectedClass || !selectedClassExists) errors.push("lớp không tồn tại hoặc chưa được chọn");
         if (!word || !meaning || !q || !correct || !choiceText || !difficulty || !explanation) errors.push("thiếu trường bắt buộc");
         if (options.length < 2) errors.push("cần ít nhất 2 lựa chọn");
         if (new Set(options.map(value => value.toLocaleLowerCase("vi-VN"))).size !== options.length) errors.push("lựa chọn bị trùng");
@@ -1471,8 +1539,15 @@
         if (correctIndex < 0) errors.push("đáp án đúng không khớp lựa chọn");
         const normalizedDifficulty = (difficulty || "").toLocaleUpperCase("vi-VN");
         if (!["DỄ","TRUNG BÌNH","KHÓ"].includes(normalizedDifficulty)) errors.push("độ khó phải là DỄ, TRUNG BÌNH hoặc KHÓ");
+
         const selectedRound = roundValue || defaultRound;
-        if (!selectedRound || !knownRounds.has(String(selectedRound))) errors.push("vòng không tồn tại");
+        const selectedRoundRecord = knownRounds.get(String(selectedRound));
+        if (!selectedRound || !selectedRoundRecord) {
+          errors.push("vòng không tồn tại");
+        } else if (!selectedClass || String(selectedRoundRecord.classId ?? "") !== String(selectedClass)) {
+          errors.push("vòng không thuộc lớp đã chọn");
+        }
+
         return {
           line:row.index,
           errors,
@@ -1489,12 +1564,21 @@
     }
     function previewBulkImport() {
       bulkImportRows = parseBulkImport();
+      const existingKeys = new Set(questions.map(question => `${Number(question.round)}|${String(question.q || "").trim().toLocaleLowerCase("vi-VN")}`));
+      const previewKeys = new Set();
+      bulkImportRows.forEach(row => {
+        if (row.errors.length) return;
+        const key = `${Number(row.data.round)}|${String(row.data.q || "").trim().toLocaleLowerCase("vi-VN")}`;
+        if (existingKeys.has(key)) row.errors.push("câu hỏi đã tồn tại trong vòng này");
+        else if (previewKeys.has(key)) row.errors.push("câu hỏi bị trùng trong lần nhập này");
+        previewKeys.add(key);
+      });
       const result = document.getElementById("bulk-import-result");
       result.textContent = "";
       bulkImportRows.forEach(row => {
         const item = document.createElement("div");
         item.className = `rounded-xl p-3 font-bold text-sm ${row.errors.length ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`;
-        item.textContent = row.errors.length ? `Dòng ${row.line}: Lỗi — ${row.errors.join("; ")}` : `Dòng ${row.line}: Hợp lệ — ${row.data.q}`;
+        item.textContent = row.errors.length ? `Dòng ${row.line}: Lỗi — ${row.errors.join("; ")}` : `Dòng ${row.line}: Hợp lệ — ${row.data.q} · Lớp: ${document.getElementById("bulk-import-class").selectedOptions[0]?.text || "—"} · Vòng: ${row.data.round}`;
         result.appendChild(item);
       });
       document.getElementById("bulk-save-button").disabled = !bulkImportRows.length || bulkImportRows.some(row => row.errors.length);
@@ -1502,6 +1586,25 @@
     async function saveBulkImport() {
       if (!bulkImportRows.length || bulkImportRows.some(row => row.errors.length)) return;
       const button = document.getElementById("bulk-save-button");
+      const freshRows = parseBulkImport();
+      if (!freshRows.length || freshRows.some(row => row.errors.length)) {
+        bulkImportRows = freshRows;
+        previewBulkImport();
+        return;
+      }
+      const existingKeys = new Set(questions.map(question => `${Number(question.round)}|${String(question.q || "").trim().toLocaleLowerCase("vi-VN")}`));
+      const importKeys = new Set();
+      const duplicateRows = [];
+      freshRows.forEach(row => {
+        const key = `${Number(row.data.round)}|${String(row.data.q || "").trim().toLocaleLowerCase("vi-VN")}`;
+        if (existingKeys.has(key) || importKeys.has(key)) duplicateRows.push(row.line);
+        importKeys.add(key);
+      });
+      if (duplicateRows.length) {
+        toast(`Phát hiện câu hỏi trùng ở dòng ${duplicateRows.join(", ")}. Chưa lưu dữ liệu.`);
+        return;
+      }
+      bulkImportRows = freshRows;
       button.disabled = true;
       const created = bulkImportRows.map(row => touchEntity({id:`q-${Date.now()}-${Math.random().toString(16).slice(2)}`,...row.data}));
       questions.push(...created); shared.questions = questions;
@@ -1675,13 +1778,30 @@
         };
         card.querySelector(".delete-class").onclick = async () => {
           if (!confirm(`Xóa lớp “${cls.name}”?`)) return;
-          classes = classes.filter(item => String(item.id) !== String(cls.id));
+          const classId = String(cls.id);
+          students.forEach(student => {
+            if (String(student.classId ?? "") !== classId) return;
+            student.classId = "";
+            student.className = "";
+            touchEntity(student);
+          });
+          rounds.forEach(round => {
+            if (String(round.classId ?? "") !== classId) return;
+            round.classId = "";
+            touchEntity(round);
+          });
+          classes = classes.filter(item => String(item.id) !== classId);
           shared.classes = classes;
+          shared.students = cleanStudents(students);
+          shared.rounds = rounds;
           markSharedChanged();
           await persistShared(true);
           renderClassesAdmin();
+          renderStudentsAdmin();
           renderRounds();
-          toast("Đã xóa lớp.");
+          renderProfiles();
+          renderProgressTracker();
+          toast("Đã xóa lớp và bỏ xếp lớp cho dữ liệu liên quan.");
         };
         box.appendChild(card);
       });

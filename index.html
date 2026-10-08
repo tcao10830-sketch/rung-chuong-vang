@@ -1401,7 +1401,7 @@
       if (correct) {
         score += 100;
         document.getElementById("quiz-feedback").textContent = currentCombo >= 2 ? `Chính xác! 🔥 Combo x${currentCombo}` : "Chính xác! +100 điểm ⭐";
-        showRewardFx(currentCombo >= 2 ? "🔥" : "⭐", currentCombo >= 2 ? `Đúng ${currentCombo} câu liên tiếp!` : "+100 điểm", currentCombo);
+        showRewardFx(currentCombo >= 2 ? "🔥" : "⭐", currentCombo >= 2 ? `Ái chà. Đúng ${currentCombo} câu liên tiếp!` : "+100 điểm", currentCombo);
       } else {
         document.getElementById("quiz-feedback").textContent = "Chưa tày đâu!";
         showWrongFx();

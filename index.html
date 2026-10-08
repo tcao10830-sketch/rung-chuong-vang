@@ -225,6 +225,19 @@
        <p data-template-id="map-description" class="canva-text font-bold text-slate-500" style="color: rgb(100, 116, 139); font-weight: 700; font-style: normal; font-size: 16px;">Hoàn thành vòng trước để mở khóa thử thách mới.</p>
        <div id="round-map" class="relative mt-5 soft-card p-7 grid sm:grid-cols-3 gap-5"></div>
       </section>
+      <section class="mt-9">
+       <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+         <h2 class="fun-title text-3xl">Tiến độ của em</h2>
+         <p class="font-bold text-slate-500">Mỗi vòng hoàn thành sẽ giúp em tích thêm sao. Cố gắng thu thập thật nhiều nhé!</p>
+        </div>
+        <div class="rounded-2xl bg-yellow-50 border-2 border-yellow-200 px-5 py-3 text-center">
+         <span class="block text-xs font-extrabold text-yellow-700">TỔNG SAO</span>
+         <strong id="student-progress-total-stars" class="block text-2xl font-black text-yellow-700">0 ⭐</strong>
+        </div>
+       </div>
+       <div id="student-progress-list" class="grid gap-3"></div>
+      </section>
      </div>
     </section>
     <section id="quiz-screen" class="screen">
@@ -1126,6 +1139,54 @@
         : !roundClassId;
     }
 
+    function getRoundStars(student, roundId) {
+      if (!student || student.id === "guest") return 0;
+      const saved = Number(student.roundStars?.[String(roundId)]);
+      if (Number.isFinite(saved) && saved >= 0) return saved;
+      const item = progressHistory[progressKey(student.id,roundId)];
+      return progressAttempts(item).reduce((total,attempt) => {
+        if (!attempt.completedAt) return total;
+        const correct = (attempt.answers || []).filter(answer => answer.correct).length;
+        return total + Math.max(1,correct);
+      },0);
+    }
+
+    function renderStudentProgress(student, visibleRounds) {
+      const totalStars = Number(student?.stars || 0);
+      const totalEl = document.getElementById("student-progress-total-stars");
+      const list = document.getElementById("student-progress-list");
+      if (totalEl) totalEl.textContent = `${totalStars} ⭐`;
+      if (!list) return;
+      if (student?.id === "guest") {
+        list.innerHTML = '<div class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Đăng nhập hồ sơ để lưu và theo dõi số sao của riêng em.</div>';
+        return;
+      }
+      if (!visibleRounds.length) {
+        list.innerHTML = '<div class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Lớp của em hiện chưa có vòng chơi để theo dõi.</div>';
+        return;
+      }
+      list.innerHTML = visibleRounds.map(round => {
+        const item = progressHistory[progressKey(student.id,round.id)] || null;
+        const attempts = progressAttempts(item);
+        const completedAttempts = attempts.filter(attempt => attempt.completedAt);
+        const answered = attempts.reduce((n,attempt) => n + (attempt.answers || []).length,0);
+        const qsCount = questions.filter(q => String(q.round) === String(round.id)).length;
+        const bestCorrect = attempts.reduce((best,attempt) => Math.max(best,(attempt.answers || []).filter(answer => answer.correct).length),0);
+        const roundStars = getRoundStars(student,round.id);
+        const progress = qsCount ? Math.min(100,Math.round(bestCorrect / qsCount * 100)) : 0;
+        const state = completedAttempts.length ? "Đã hoàn thành" : answered ? "Đang chơi" : "Chưa bắt đầu";
+        const stateClass = completedAttempts.length ? "text-emerald-700 bg-emerald-50" : answered ? "text-blue-700 bg-blue-50" : "text-slate-500 bg-slate-50";
+        return `<article class="rounded-2xl border-2 border-slate-100 p-4 bg-white">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0"><div class="font-black">Vòng ${escapeHtml(round.id)} · ${escapeHtml(round.name)}</div><div class="text-sm font-bold text-slate-500 mt-1">${state} · ${completedAttempts.length} lượt hoàn thành</div></div>
+            <div class="text-right"><div class="text-lg font-black text-yellow-600">⭐ ${roundStars}</div><div class="text-xs font-bold text-slate-400">sao của vòng</div></div>
+          </div>
+          <div class="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-2 rounded-full bg-yellow-400" style="width:${progress}%"></div></div>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-500"><span>${qsCount ? `${bestCorrect}/${qsCount} câu đúng ở lượt tốt nhất` : "Chưa có câu hỏi"}</span><span class="rounded-full px-2 py-1 ${stateClass}">${state}</span></div>
+        </article>`;
+      }).join("");
+    }
+
     function renderHome() {
       if (!activeStudent) return;
       if (activeStudent.id !== "guest") activeStudent = students.find(s => s.id === activeStudent.id) || activeStudent;
@@ -1135,9 +1196,13 @@
       document.getElementById("student-greeting").textContent = `Chào ${activeStudent.name}! ${activeStudent.emoji || "🎈"}`;
       document.getElementById("star-total").textContent = activeStudent.stars || 0;
       document.getElementById("combo-total").textContent = `x${activeStudent.bestCombo || 0}`;
+      const completedVisibleRounds = activeStudent.id === "guest"
+        ? 0
+        : visibleRounds.filter(round => progressAttempts(progressHistory[progressKey(activeStudent.id,round.id)]).some(attempt => attempt.completedAt)).length;
       document.getElementById("round-total").textContent = visibleRounds.length
-        ? `${Math.min((activeStudent.completed || 0)+1,visibleRounds.length)} / ${visibleRounds.length}`
+        ? `${completedVisibleRounds} / ${visibleRounds.length}`
         : "0 / 0";
+      renderStudentProgress(activeStudent,visibleRounds);
 
       const map = document.getElementById("round-map");
       map.innerHTML = "";
@@ -1292,18 +1357,32 @@
       setTimeout(() => { questionIndex++; questionIndex < quizQuestions.length ? renderQuestion() : finishQuiz(false); },1000);
     }
     function finishQuiz(quit) {
+      let earnedStarsThisRound = 0;
       if (!quit && activeStudent && activeStudent.id !== "guest") {
-        activeStudent.stars = (activeStudent.stars || 0) + Math.max(1,Math.round(score/100));
-        activeStudent.completed = Math.max(activeStudent.completed || 0,Math.min(rounds.length,currentRound));
-        touchEntity(activeStudent);
         const item = progressHistory[progressKey(activeStudent.id,currentRound)];
         const attempt = progressAttempts(item).find(a => String(a.id) === String(currentAttemptId));
-        if (attempt) { attempt.completedAt = now(); touchEntity(attempt); touchEntity(item); }
-        markSharedChanged(); persistShared(true);
+        const wasAlreadyCompleted = Boolean(attempt?.completedAt);
+        if (attempt && !wasAlreadyCompleted) {
+          const earnedStars = Math.max(1,Math.round(score/100));
+          earnedStarsThisRound = earnedStars;
+          activeStudent.stars = (activeStudent.stars || 0) + earnedStars;
+          activeStudent.roundStars = {...(activeStudent.roundStars || {})};
+          const roundKey = String(currentRound);
+          activeStudent.roundStars[roundKey] = Number(activeStudent.roundStars[roundKey] || 0) + earnedStars;
+          activeStudent.completed = Math.max(activeStudent.completed || 0,Math.min(rounds.length,currentRound));
+          attempt.completedAt = now();
+          touchEntity(attempt);
+          touchEntity(item);
+          touchEntity(activeStudent);
+          markSharedChanged();
+          persistShared(true);
+        }
       }
       if (quit) { renderHome(); showScreen("home-screen"); return; }
       document.getElementById("result-title").textContent = "KẾT THÚC VÒNG!";
-      document.getElementById("result-copy").textContent = "Kết quả lượt chơi đã được ghi nhận.";
+      document.getElementById("result-copy").textContent = earnedStarsThisRound > 0
+        ? `Tuyệt vời! Em vừa nhận +${earnedStarsThisRound} ⭐ cho vòng này.`
+        : "Kết quả lượt chơi đã được ghi nhận.";
       document.getElementById("result-score").textContent = score;
       showScreen("result-screen");
     }
@@ -1762,13 +1841,25 @@
     }
     function renderProgressTracker() {
       const overview=document.getElementById("progress-overview"), box=document.getElementById("progress-tracker-list");
-      const pairs=students.flatMap(s=>rounds.map(r=>({s,r,item:progressHistory[progressKey(s.id,r.id)]||null,qs:questions.filter(q=>q.round===r.id)})));
+      const pairs=students.flatMap(s=>getStudentRounds(s).map(r=>({s,r,item:progressHistory[progressKey(s.id,r.id)]||null,qs:questions.filter(q=>String(q.round)===String(r.id))})));
       const started=pairs.flatMap(x=>progressAttempts(x.item).map(attempt=>({x,attempt}))).filter(x=>x.attempt.answers?.length);
       const completed=started.filter(x=>x.attempt.completedAt);
       const answered=started.reduce((n,x)=>n+(x.attempt.answers||[]).length,0), correct=started.reduce((n,x)=>n+(x.attempt.answers||[]).filter(a=>a.correct).length,0);
       overview.innerHTML=[`<div class="rounded-xl bg-slate-50 p-3"><b>${students.length}</b><small class="block text-slate-500">Học sinh</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.length}</b><small class="block text-slate-500">Tổng vòng</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${rounds.filter(r=>!r.locked).length}</b><small class="block text-slate-500">Vòng đang mở</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${started.length}/${completed.length}</b><small class="block text-slate-500">Lượt đã làm / hoàn thành</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered}</b><small class="block text-slate-500">Câu đã trả lời</small></div>`,`<div class="rounded-xl bg-slate-50 p-3"><b>${answered?Math.round(correct/answered*100):0}%</b><small class="block text-slate-500">Chính xác TB</small></div>`].join("");
-      const sf=document.getElementById("progress-student-filter"),rf=document.getElementById("progress-round-filter"); if(!sf.dataset.ready){sf.innerHTML='<option value="">Tất cả học sinh</option>'+students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");rf.innerHTML='<option value="">Tất cả vòng</option>'+rounds.map(r=>`<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("");sf.dataset.ready="1";[sf,rf,document.getElementById("progress-status-filter"),document.getElementById("progress-sort")].forEach(e=>e.onchange=()=>{progressView.student=sf.value;progressView.round=rf.value;progressView.status=document.getElementById("progress-status-filter").value;progressView.sort=document.getElementById("progress-sort").value;progressView.limit=50;renderProgressTracker();});document.getElementById("progress-load-more").onclick=()=>{progressView.limit+=50;renderProgressTracker();};}
-      sf.value=progressView.student;rf.value=progressView.round; const status=progressView.status;
+      const sf=document.getElementById("progress-student-filter"),rf=document.getElementById("progress-round-filter");
+      const selectedStudent=students.find(s=>String(s.id)===String(progressView.student));
+      const availableProgressRounds=selectedStudent ? getStudentRounds(selectedStudent) : rounds;
+      if (!availableProgressRounds.some(r=>String(r.id)===String(progressView.round))) progressView.round="";
+      sf.innerHTML='<option value="">Tất cả học sinh</option>'+students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");
+      rf.innerHTML='<option value="">Tất cả vòng</option>'+availableProgressRounds.map(r=>`<option value="${escapeHtml(r.id)}">Vòng ${escapeHtml(r.id)}: ${escapeHtml(r.name)}</option>`).join("");
+      sf.value=progressView.student;
+      rf.value=progressView.round;
+      if(!sf.dataset.ready){
+        sf.dataset.ready="1";
+        [sf,rf,document.getElementById("progress-status-filter"),document.getElementById("progress-sort")].forEach(e=>e.onchange=()=>{progressView.student=sf.value;progressView.round=rf.value;progressView.status=document.getElementById("progress-status-filter").value;progressView.sort=document.getElementById("progress-sort").value;progressView.limit=50;renderProgressTracker();});
+        document.getElementById("progress-load-more").onclick=()=>{progressView.limit+=50;renderProgressTracker();};
+      }
+      const status=progressView.status;
       const statusKeys={"not-started":"Chưa bắt đầu","in-progress":"Đang làm","completed":"Đã hoàn thành/Đã qua","failed":"Chưa đạt","no-questions":"Chưa có câu hỏi"};
       const rows=students.map(s=>{const list=pairs.filter(x=>x.s.id===s.id&&(!progressView.round||String(x.r.id)===progressView.round)).map(x=>({...x,attempts:progressAttempts(x.item)}));const matching=list.flatMap(x=>x.attempts.map(attempt=>({x,attempt}))).filter(v=>!progressView.status||progressStatus(v.attempt,v.x.r,v.x.qs.length).label===statusKeys[progressView.status]);const done=matching.filter(v=>v.attempt.completedAt).length, used=matching.filter(v=>v.attempt.answers?.length).length, total=matching.length;return {s,list,matching,done,used,total,rate:total?done/total:0};}).filter(x=>!progressView.student||String(x.s.id)===progressView.student).filter(x=>!status||x.matching.length); rows.sort((a,b)=>progressView.sort==="progress"?b.rate-a.rate:progressView.sort==="name"?a.s.name.localeCompare(b.s.name):b.done-a.done);
       box.innerHTML=rows.slice(0,progressView.limit).map(x=>`<details class="rounded-2xl border-2 border-slate-100 p-4"><summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-2"><div><strong>${escapeHtml(x.s.name)}</strong><span class="ml-2 text-sm text-slate-500">${escapeHtml(x.s.className||x.s.id)}</span></div><span class="text-sm font-black">${x.done}/${x.total} lượt hoàn thành · ⭐ ${x.s.stars||0}</span></div><div class="mt-2 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-400" style="width:${x.total?x.done/x.total*100:0}%"></div></div></summary><div class="mt-3 space-y-2">${x.list.map(v=>{const attempts=v.attempts.filter(attempt=>!status||progressStatus(attempt,v.r,v.qs.length).label===statusKeys[status]);if(!attempts.length)return "";return `<div class="rounded-xl bg-slate-50 p-3 text-sm"><div class="font-black mb-2">Vòng ${escapeHtml(v.r.id)} · ${escapeHtml(v.r.name)}</div><div class="space-y-2">${attempts.map((attempt,attemptIndex)=>{const answers=attempt.answers||[];const right=answers.filter(a=>a.correct).length;const statusInfo=progressStatus(attempt,v.r,v.qs.length);const key=`${v.s.id}:${v.r.id}:${attempt.id}`;return `<div class="rounded-lg bg-white p-3"><div class="flex flex-wrap justify-between gap-2"><b>Lượt ${attemptIndex+1}</b><span>${v.r.locked?'🔒 Khóa':'🔓 Mở'} · <span class="${statusInfo.tone} font-black">${statusInfo.label}</span></span></div><div class="mt-1">${answers.length||0}/${v.qs.length||0} câu · đúng ${right} · sai ${Math.max(0,answers.length-right)} · chính xác ${answers.length?Math.round(right/answers.length*100):0}% · điểm ${attempt.score??'Chưa có dữ liệu'}</div><div class="mt-1 text-xs text-slate-500">Bắt đầu: ${escapeHtml(attempt.startedAt||'Chưa có dữ liệu')}${attempt.completedAt?` · Hoàn thành: ${escapeHtml(attempt.completedAt)}`:""}</div><button type="button" data-progress-detail="${escapeHtml(key)}" class="mt-2 rounded-lg bg-slate-50 px-3 py-1 font-black text-blue-700">${progressView.detailOpen.has(key)?'Đóng':'Xem câu đúng/sai'}</button><div data-progress-answers="${escapeHtml(key)}" class="${progressView.detailOpen.has(key)?'mt-3':'hidden'}"></div></div>`;}).join("")}</div></div>`;}).join("")}</div></details>`).join("")||'<p class="rounded-2xl bg-slate-50 p-5 font-bold text-slate-500">Chưa có dữ liệu phù hợp.</p>';

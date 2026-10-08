@@ -307,13 +307,20 @@
       </div>
       <div id="teacher-rounds" class="teacher-panel hidden mt-5">
        <section class="soft-card p-6">
-        <div class="flex justify-between gap-3 items-start">
+        <div class="flex flex-col lg:flex-row lg:justify-between gap-4 items-start">
          <div>
           <h2 data-template-id="rounds-title" class="canva-text font-black text-2xl" style="color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 24px;">Quản lý vòng chơi</h2>
-          <p data-template-id="rounds-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Theo dõi các vòng chơi, tên hiển thị và trạng thái khóa/mở dùng chung.</p>
-         </div><button type="button" data-template-id="new-round-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black" onclick="newRound()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm vòng</button>
+          <p data-template-id="rounds-help" class="canva-text font-semibold text-slate-500 mt-1" style="color: rgb(100, 116, 139); font-weight: 600; font-style: normal; font-size: 16px;">Các vòng được nhóm theo lớp để dễ theo dõi và quản lý.</p>
+         </div>
+         <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+          <label class="sr-only" for="round-class-filter">Lọc vòng theo lớp</label>
+          <select id="round-class-filter" class="w-full sm:w-56 rounded-xl border-2 border-slate-200 p-3 font-bold bg-white">
+           <option value="">Tất cả lớp</option>
+          </select>
+          <button type="button" data-template-id="new-round-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black whitespace-nowrap" onclick="newRound()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm vòng</button>
+         </div>
         </div>
-        <div id="round-editor" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-5"></div>
+        <div id="round-editor" class="mt-5 space-y-6"></div>
        </section>
       </div>
       <div id="teacher-students" class="teacher-panel hidden mt-5">
@@ -1382,38 +1389,110 @@
       toast(className ? `Đã gán ${className} cho vòng ${round.id}.` : `Đã bỏ xếp lớp cho vòng ${round.id}.`);
     }
 
+    let roundClassFilter = "";
+
+    function renderRoundClassFilter() {
+      const select = document.getElementById("round-class-filter");
+      if (!select) return;
+      const previous = roundClassFilter;
+      select.innerHTML = '<option value="">Tất cả lớp</option>' +
+        classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("") +
+        '<option value="__unassigned__">Chưa xếp lớp</option>';
+      const validValues = ["", "__unassigned__", ...classes.map(cls => String(cls.id))];
+      roundClassFilter = validValues.includes(previous) ? previous : "";
+      select.value = roundClassFilter;
+      select.onchange = () => {
+        roundClassFilter = select.value;
+        renderRounds();
+      };
+    }
+
+    function getRoundGroupKey(round) {
+      const classId = String(round?.classId ?? "");
+      return getClassById(classId) ? classId : "__unassigned__";
+    }
+
+    function getRoundGroupTitle(groupKey) {
+      if (groupKey === "__unassigned__") return "Chưa xếp lớp";
+      return getClassById(groupKey)?.name || "Chưa xếp lớp";
+    }
+
     function renderRounds() {
       const box = document.getElementById("round-editor");
+      if (!box) return;
+      renderRoundClassFilter();
       box.innerHTML = "";
-      rounds.forEach(round => {
-        const count = questions.filter(q => q.round === round.id).length;
-        const card = document.createElement("article");
-        card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
-        card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
-        const classSelect = card.querySelector(`#round-class-${round.id}`);
-        renderRoundClassSelect(classSelect, round.classId);
-        classSelect.onchange = async () => {
-          await updateRoundClass(round.id, classSelect.value);
-        };
 
-        card.querySelector(".save").onclick = () => {
-          round.name = card.querySelector(`#round-name-${round.id}`).value.trim() || round.name;
-          touchEntity(round); markSharedChanged(); persistShared(true); renderRounds();
-        };
-        card.querySelector(".toggle").onclick = () => {
-          round.locked = !round.locked;
-          touchEntity(round); markSharedChanged(); persistShared(true); renderRounds(); renderHome();
-          toast(round.locked ? "Đã khóa vòng." : "Đã mở vòng.");
-        };
-        box.appendChild(card);
+      const filteredRounds = rounds.filter(round => {
+        if (!roundClassFilter) return true;
+        return getRoundGroupKey(round) === roundClassFilter;
+      });
+
+      if (!filteredRounds.length) {
+        box.innerHTML = '<div class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center font-bold text-slate-500">Chưa có vòng nào trong nhóm này.</div>';
+        return;
+      }
+
+      const groupKeys = [];
+      const groups = new Map();
+      const classIds = classes.map(cls => String(cls.id));
+      const orderedKeys = roundClassFilter
+        ? [roundClassFilter]
+        : [...classIds, "__unassigned__"];
+
+      filteredRounds.forEach(round => {
+        const key = getRoundGroupKey(round);
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          groupKeys.push(key);
+        }
+        groups.get(key).push(round);
+      });
+
+      const finalGroupKeys = orderedKeys.filter(key => groups.has(key));
+      groupKeys.forEach(key => {
+        if (!finalGroupKeys.includes(key)) finalGroupKeys.push(key);
+      });
+
+      finalGroupKeys.forEach(groupKey => {
+        const groupRounds = groups.get(groupKey) || [];
+        groupRounds.sort((a, b) => {
+          const aId = Number(a.id);
+          const bId = Number(b.id);
+          if (Number.isFinite(aId) && Number.isFinite(bId)) return aId - bId;
+          return String(a.id).localeCompare(String(b.id), "vi-VN", { numeric: true });
+        });
+
+        const section = document.createElement("section");
+        section.className = "rounded-3xl border-2 border-slate-100 bg-slate-50/70 p-4 md:p-5";
+        section.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2 mb-4"><div class="flex items-center gap-2"><span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-black">🏫</span><div><h3 class="font-black text-xl text-slate-800">${escapeHtml(getRoundGroupTitle(groupKey))}</h3><p class="text-sm font-bold text-slate-500">${groupRounds.length} vòng</p></div></div></div><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" data-round-group></div>`;
+
+        const groupBox = section.querySelector("[data-round-group]");
+        groupRounds.forEach(round => {
+          const count = questions.filter(q => q.round === round.id).length;
+          const card = document.createElement("article");
+          card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
+          card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
+          const classSelect = card.querySelector(`#round-class-${round.id}`);
+          renderRoundClassSelect(classSelect, round.classId);
+          classSelect.onchange = async () => {
+            await updateRoundClass(round.id, classSelect.value);
+          };
+
+          card.querySelector(".save").onclick = () => {
+            round.name = card.querySelector(`#round-name-${round.id}`).value.trim() || round.name;
+            touchEntity(round); markSharedChanged(); persistShared(true); renderRounds();
+          };
+          card.querySelector(".toggle").onclick = () => {
+            round.locked = !round.locked;
+            touchEntity(round); markSharedChanged(); persistShared(true); renderRounds(); renderHome();
+            toast(round.locked ? "Đã khóa vòng." : "Đã mở vòng.");
+          };
+          groupBox.appendChild(card);
+        });
+        box.appendChild(section);
       });
     }
-    function newRound() {
-      const id = Math.max(0,...rounds.map(r => Number(r.id) || 0))+1;
-      rounds.push(touchEntity({id,name:`Vòng ${id}`,color:"#a875ff",locked:true,classId:""}));
-      shared.rounds = rounds; markSharedChanged(); persistShared(true); renderRounds(); toast("Đã thêm vòng mới.");
-    }
-
     function renderClassesAdmin() {
       const box = document.getElementById("class-editor");
       if (!box) return;

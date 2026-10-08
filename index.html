@@ -1103,16 +1103,51 @@
     function logoutTeacher() { teacherSession = {valid:false,expiresAt:0}; showScreen(activeStudent ? "home-screen" : "welcome-screen"); }
     function goHome() { activeStudent ? (renderHome(),showScreen("home-screen")) : showScreen("welcome-screen"); }
 
+    function getStudentRounds(student = activeStudent) {
+      if (!student || student.id === "guest") return rounds.slice();
+
+      const classId = String(student.classId ?? "");
+      if (!classId) {
+        return rounds.filter(round => !String(round.classId ?? ""));
+      }
+
+      return rounds.filter(round => String(round.classId ?? "") === classId);
+    }
+
+    function canStudentAccessRound(round, student = activeStudent) {
+      if (!round || !student) return false;
+      if (student.id === "guest") return true;
+
+      const studentClassId = String(student.classId ?? "");
+      const roundClassId = String(round.classId ?? "");
+
+      return studentClassId
+        ? roundClassId === studentClassId
+        : !roundClassId;
+    }
+
     function renderHome() {
       if (!activeStudent) return;
       if (activeStudent.id !== "guest") activeStudent = students.find(s => s.id === activeStudent.id) || activeStudent;
+
+      const visibleRounds = getStudentRounds(activeStudent);
+
       document.getElementById("student-greeting").textContent = `Chào ${activeStudent.name}! ${activeStudent.emoji || "🎈"}`;
       document.getElementById("star-total").textContent = activeStudent.stars || 0;
       document.getElementById("combo-total").textContent = `x${activeStudent.bestCombo || 0}`;
-      document.getElementById("round-total").textContent = `${Math.min((activeStudent.completed || 0)+1,rounds.length)} / ${rounds.length}`;
+      document.getElementById("round-total").textContent = visibleRounds.length
+        ? `${Math.min((activeStudent.completed || 0)+1,visibleRounds.length)} / ${visibleRounds.length}`
+        : "0 / 0";
+
       const map = document.getElementById("round-map");
       map.innerHTML = "";
-      rounds.forEach(round => {
+
+      if (!visibleRounds.length) {
+        map.innerHTML = '<div class="sm:col-span-3 rounded-2xl bg-slate-50 p-6 text-center font-bold text-slate-500">Lớp của em hiện chưa có vòng chơi.</div>';
+        return;
+      }
+
+      visibleRounds.forEach(round => {
         const card = document.createElement("button");
         card.type = "button";
         card.disabled = round.locked === true;
@@ -1123,17 +1158,26 @@
         map.appendChild(card);
       });
     }
+
     function startNextRound() {
-      const round = rounds.find(r => !r.locked);
-      if (!round) return toast("Hiện chưa có vòng nào được mở.");
+      const round = getStudentRounds(activeStudent).find(r => !r.locked);
+      if (!round) return toast("Lớp của em hiện chưa có vòng nào được mở.");
       startRound(round.id);
     }
+
     function startRound(roundId) {
-      const round = rounds.find(r => r.id === roundId);
-      if (!round || round.locked) return toast("Vòng này chưa được mở.");
+      const round = rounds.find(r => String(r.id) === String(roundId));
+
+      if (!round || !canStudentAccessRound(round, activeStudent)) {
+        return toast("Em không có quyền vào vòng chơi này.");
+      }
+
+      if (round.locked) return toast("Vòng này chưa được mở.");
+
       currentRound = roundId;
-      quizQuestions = questions.filter(q => q.round === roundId);
+      quizQuestions = questions.filter(q => String(q.round) === String(roundId));
       if (!quizQuestions.length) return toast("Vòng này chưa có câu hỏi.");
+
       currentAttemptId = `attempt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       questionIndex = 0; score = 0;
       showScreen("quiz-screen"); renderQuestion();

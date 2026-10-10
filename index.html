@@ -118,7 +118,14 @@
               headers: { ...headers(), Prefer: "resolution=merge-duplicates,return=representation" },
               body: JSON.stringify(body)
             });
-            if (!response.ok) throw new Error(`Supabase create ${response.status}`);
+            if (!response.ok) {
+              const details = await response.text().catch(() => "");
+              throw new Error(`Supabase create ${response.status}${details ? `: ${details}` : ""}`);
+            }
+            const createdRows = await response.json().catch(() => []);
+            if (!Array.isArray(createdRows) || createdRows.length === 0) {
+              throw new Error("Supabase không xác nhận đã tạo bản ghi dùng chung.");
+            }
             await notify(true);
             return { isOk: true };
           } catch (error) {
@@ -140,7 +147,36 @@
               headers: { ...headers(), Prefer: "return=representation" },
               body: JSON.stringify(body)
             });
-            if (!response.ok) throw new Error(`Supabase update ${response.status}`);
+            if (!response.ok) {
+              const details = await response.text().catch(() => "");
+              throw new Error(`Supabase update ${response.status}${details ? `: ${details}` : ""}`);
+            }
+
+            // Supabase can return HTTP 2xx even when RLS or a stale key means
+            // that no row was actually updated. Do not report a false success.
+            const updatedRows = await response.json().catch(() => []);
+            if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+              const upsertResponse = await fetch(`${base}?on_conflict=data_key`, {
+                method: "POST",
+                headers: { ...headers(), Prefer: "resolution=merge-duplicates,return=representation" },
+                body: JSON.stringify({
+                  data_key: record.data_key,
+                  data_type: record.data_type,
+                  data_value: body.data_value,
+                  revision: body.revision,
+                  updated_at: body.updated_at
+                })
+              });
+              if (!upsertResponse.ok) {
+                const details = await upsertResponse.text().catch(() => "");
+                throw new Error(`Supabase upsert ${upsertResponse.status}${details ? `: ${details}` : ""}`);
+              }
+              const upsertedRows = await upsertResponse.json().catch(() => []);
+              if (!Array.isArray(upsertedRows) || upsertedRows.length === 0) {
+                throw new Error("Supabase không xác nhận đã ghi dữ liệu (không có bản ghi trả về).");
+              }
+            }
+
             await notify(true);
             return { isOk: true };
           } catch (error) {
@@ -853,7 +889,8 @@
             : await window.dataSdk.create(record);
           if (!result.isOk) {
             cacheShared();
-            setSyncStatus("Đồng bộ thất bại", true);
+            const reason = result.error?.message ? ` · ${result.error.message}` : "";
+            setSyncStatus(`Đồng bộ thất bại${reason}`, true);
             return;
           }
           pendingLocalMutation = false;

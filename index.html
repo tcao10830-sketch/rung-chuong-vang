@@ -1274,6 +1274,16 @@
         : !roundClassId;
     }
 
+    // Use a cheerful, stable palette so rounds are visually distinct without changing saved data.
+    function getRoundDisplayColor(round) {
+      const palette = ["#4F87FF", "#38C98B", "#FF914D", "#EF5B68", "#06B6D4", "#F05AA6", "#7C6CFF", "#00A6A6", "#FF7A45", "#3B82F6"];
+      const numericId = Number(round?.id);
+      const index = Number.isFinite(numericId) && numericId > 0
+        ? (numericId - 1) % palette.length
+        : Math.abs(String(round?.id ?? "").split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % palette.length;
+      return palette[index];
+    }
+
     function getRoundQuestionCount(roundId) {
       return questions.filter(q => String(q.round) === String(roundId)).length;
     }
@@ -1379,7 +1389,7 @@
           card.type = "button";
           card.disabled = round.locked === true;
           card.className = `rounded-2xl p-5 text-center font-black ${round.locked ? "bg-slate-100 text-slate-400" : "action text-white"}`;
-          card.style.background = round.locked ? "#e2e8f0" : round.color;
+          card.style.background = round.locked ? "#e2e8f0" : getRoundDisplayColor(round);
           card.innerHTML = `<span class="block text-3xl">${round.locked ? "🔒" : round.id}</span><span class="block mt-2">${escapeHtml(round.name)}</span><span class="block text-xs mt-2">${round.locked ? "ĐANG KHÓA" : "ĐANG MỞ"}</span>`;
           card.onclick = () => startRound(round.id);
           map.appendChild(card);
@@ -2008,7 +2018,7 @@
           const count = questions.filter(q => q.round === round.id).length;
           const card = document.createElement("article");
           card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
-          card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><label class="block text-sm font-extrabold mt-4" for="round-lesson-group-${round.id}">Nhóm bài học</label><select id="round-lesson-group-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button><button type="button" class="delete-round rounded-xl bg-rose-100 px-4 py-2 font-black text-rose-700">Xóa vòng</button></div>`;
+          card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${getRoundDisplayColor(round)}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><label class="block text-sm font-extrabold mt-4" for="round-lesson-group-${round.id}">Nhóm bài học</label><select id="round-lesson-group-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button><button type="button" class="delete-round rounded-xl bg-rose-100 px-4 py-2 font-black text-rose-700">Xóa vòng</button></div>`;
           const classSelect = card.querySelector(`#round-class-${round.id}`);
           renderRoundClassSelect(classSelect, round.classId);
           classSelect.onchange = async () => {

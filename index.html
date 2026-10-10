@@ -389,6 +389,7 @@
           <label class="sr-only" for="round-lesson-filter">Lọc vòng theo nhóm bài học</label>
           <select id="round-lesson-filter" class="w-full sm:w-52 rounded-xl border-2 border-slate-200 p-3 font-bold bg-white"><option value="">Tất cả nhóm bài học</option></select>
           <button type="button" class="rounded-xl bg-indigo-100 px-4 py-2 font-black text-indigo-700 whitespace-nowrap" onclick="manageRoundGroups()">Quản lý nhóm</button>
+          <button type="button" class="rounded-xl bg-rose-100 px-4 py-2 font-black text-rose-700 whitespace-nowrap" onclick="deleteEmptyLegacyRounds()">Dọn vòng trống cũ</button>
           <button type="button" data-template-id="new-round-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black whitespace-nowrap" onclick="newRound()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm vòng</button>
          </div>
         </div>
@@ -477,7 +478,7 @@
        <label class="block font-extrabold" for="new-round-class">Lớp</label>
        <select id="new-round-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
        <label class="block font-extrabold mt-4" for="new-round-group">Nhóm bài học</label>
-       <select id="new-round-group" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
+       <select id="new-round-group" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
        <label class="block font-extrabold mt-4" for="new-round-name">Tên vòng</label>
        <input id="new-round-name" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
        <div class="flex flex-wrap gap-3 mt-5">
@@ -554,27 +555,18 @@
       return Object.fromEntries([...LEGACY_STUDENT_IDS].map(id => [id, {studentId:id, updatedAt:stamp, revision:1}]));
     }
     function defaultRoundGroups() {
-      const stamp = new Date().toISOString();
-      return [
-        {id:"group-vocabulary",name:"Từ vựng",isDefault:true,updatedAt:stamp},
-        {id:"group-grammar",name:"Ngữ pháp",isDefault:true,updatedAt:stamp},
-        {id:"group-phrasal-verbs",name:"Phrasal verbs",isDefault:true,updatedAt:stamp},
-        {id:"group-mixed-tests",name:"Đề kiểm tra tổng hợp",isDefault:true,updatedAt:stamp}
-      ];
+      // Nhóm bài học do giáo viên tự tạo; không áp đặt nhóm mặc định.
+      return [];
     }
     function normalizeRoundGroups(list) {
       const source = Array.isArray(list) ? list : [];
       const byId = new Map();
-      source.filter(item => item && item.id != null && String(item.name || "").trim()).forEach(item => {
+      const retiredBuiltInGroupIds = new Set(["group-vocabulary","group-grammar","group-phrasal-verbs","group-mixed-tests"]);
+      source.filter(item => item && item.id != null && String(item.name || "").trim() && !item.deleted && !retiredBuiltInGroupIds.has(String(item.id))).forEach(item => {
         const id = String(item.id);
-        const normalized = {...item,id,name:String(item.name).trim(),isDefault:Boolean(item.isDefault),deleted:Boolean(item.deleted),updatedAt:item.updatedAt || now()};
+        const normalized = {...item,id,name:String(item.name).trim(),isDefault:false,deleted:false,updatedAt:item.updatedAt || now()};
         const previous = byId.get(id);
         if (!previous || new Date(normalized.updatedAt || 0) >= new Date(previous.updatedAt || 0)) byId.set(id,normalized);
-      });
-      const defaults = defaultRoundGroups();
-      defaults.forEach(item => {
-        if (!byId.has(item.id)) byId.set(item.id,item);
-        else byId.set(item.id,{...item,...byId.get(item.id),isDefault:true});
       });
       return [...byId.values()];
     }
@@ -597,12 +589,8 @@
       students:[],
       deletedStudents:defaultDeletedStudents(),
       deletedRounds:{},
-      rounds:[
-        {id:1,name:"Khởi động",color:"#4f87ff",locked:true,updatedAt:new Date().toISOString()},
-        {id:2,name:"Tăng tốc",color:"#ff914d",locked:true,updatedAt:new Date().toISOString()},
-        {id:3,name:"Về đích",color:"#a875ff",locked:true,updatedAt:new Date().toISOString()}
-      ],
-      questions:JSON.parse(JSON.stringify(sampleQuestions)),
+      rounds:[],
+      questions:[],
       settings:{time:20,sound:true,updatedAt:new Date().toISOString()},
       teacherSecurity:{passwordHash:null,passwordSalt:null,updatedAt:new Date().toISOString()},
       progressHistory:{}
@@ -1904,8 +1892,7 @@
           if (groups.some(other => other.id !== group.id && other.name.toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"))) return toast("Tên nhóm này đã tồn tại.");
           shared.roundGroups = normalizeRoundGroups(groups.map(item => item.id === group.id ? {...item,name,updatedAt:now()} : item));
         } else {
-          if (group.isDefault) return toast("Không thể xóa nhóm mặc định. M có thể đổi tên nhóm này.");
-          if (!confirm(`Xóa nhóm “${group.name}”? Các vòng sẽ được chuyển sang “Chưa phân loại”, không bị xóa.`)) return;
+          if (!confirm(`Xóa nhóm “${group.name}”? Các vòng thuộc nhóm này sẽ chuyển sang “Chưa phân loại”; vòng chơi và tiến độ học sinh không bị xóa.`)) return;
           rounds.forEach(round => { if (String(round.lessonGroupId || "") === String(group.id)) { round.lessonGroupId = ""; touchEntity(round); } });
           shared.rounds = rounds;
           shared.roundGroups = normalizeRoundGroups(groups.filter(item => item.id !== group.id));
@@ -1915,6 +1902,31 @@
       await persistShared(true);
       renderRounds();
       toast("Đã cập nhật nhóm bài học.");
+    }
+
+    async function deleteEmptyLegacyRounds() {
+      if (!validTeacherSession()) return requestTeacherAccess();
+      const emptyRounds = rounds.filter(round => !questions.some(question => String(question.round) === String(round.id)));
+      if (!emptyRounds.length) return toast("Không có vòng trống nào để dọn.");
+      const names = emptyRounds.map(round => `• ${round.name} (Vòng ${round.id})`).join("\n");
+      if (!confirm(`Sẽ xóa ${emptyRounds.length} vòng KHÔNG CÓ câu hỏi:\n\n${names}\n\nTiến độ/lịch sử đã lưu không bị chủ động xóa, nhưng các vòng này sẽ bị loại khỏi danh sách và không được đồng bộ khôi phục. Tiếp tục?`)) return;
+      const deletedAt = now();
+      const tombstones = {};
+      emptyRounds.forEach(round => {
+        tombstones[String(round.id)] = {roundId:String(round.id),updatedAt:deletedAt,revision:Number(shared.revision || 0) + 1};
+      });
+      shared.deletedRounds = mergeDeletedRounds(shared.deletedRounds, tombstones);
+      const deletedIds = new Set(emptyRounds.map(round => String(round.id)));
+      rounds = rounds.filter(round => !deletedIds.has(String(round.id)));
+      shared.rounds = rounds;
+      // Remove orphan question records only for the deleted empty rounds (normally none).
+      questions = questions.filter(question => !deletedIds.has(String(question.round)));
+      shared.questions = questions;
+      markSharedChanged();
+      await persistShared(true);
+      renderRounds();
+      renderQuestionBank?.();
+      toast(`Đã dọn ${emptyRounds.length} vòng trống cũ.`);
     }
 
     async function deleteRound(roundId) {
@@ -2138,7 +2150,6 @@
       const name = nameInput.value.trim();
 
       if (!classValue) return toast("Hãy chọn lớp cho vòng.");
-      if (!lessonGroupValue) return toast("Hãy chọn nhóm bài học cho vòng.");
       if (!name) return toast("Tên vòng không được để trống.");
 
       const id = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
@@ -2152,13 +2163,17 @@
           color: "#a875ff",
           locked: true,
           classId,
-          lessonGroupId: lessonGroupValue === "__unassigned_group__" ? "" : String(lessonGroupValue)
+          lessonGroupId: !lessonGroupValue || lessonGroupValue === "__unassigned_group__" ? "" : String(lessonGroupValue)
         }));
         shared.rounds = rounds;
         markSharedChanged();
         await persistShared(true);
         closeNewRoundModal();
+        // Reset admin filters so a newly created round is not hidden by a previously selected class/group.
+        roundClassFilter = "";
+        roundLessonFilter = "";
         renderRounds();
+        renderHome();
         toast(classId
           ? `Đã thêm ${name} vào ${getClassById(classId)?.name || "lớp đã chọn"}.`
           : `Đã thêm ${name}.`);

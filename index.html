@@ -596,6 +596,7 @@
       roundGroups:defaultRoundGroups(),
       students:[],
       deletedStudents:defaultDeletedStudents(),
+      deletedRounds:{},
       rounds:[
         {id:1,name:"Khởi động",color:"#4f87ff",locked:true,updatedAt:new Date().toISOString()},
         {id:2,name:"Tăng tốc",color:"#ff914d",locked:true,updatedAt:new Date().toISOString()},
@@ -651,6 +652,7 @@
       shared.classes = normalizeClasses(shared.classes);
       shared.roundGroups = normalizeRoundGroups(shared.roundGroups);
       shared.deletedStudents = {...defaultDeletedStudents(), ...(shared.deletedStudents || {})};
+      shared.deletedRounds = mergeDeletedRounds(shared.deletedRounds, {});
       shared.students = normalizeStudents(shared.students);
       classes = shared.classes || [];
       students = normalizeStudents(shared.students);
@@ -709,6 +711,25 @@
         if (!result[id] || Number(tombstone.revision || 0) >= Number(result[id].revision || 0) || new Date(tombstone.updatedAt || 0) >= new Date(result[id].updatedAt || 0)) result[id] = tombstone;
       });
       return result;
+    }
+    // Tombstones prevent deleted rounds from being resurrected by a later server/local merge.
+    function mergeDeletedRounds(localDeleted, remoteDeleted) {
+      const result = {};
+      [...Object.entries(localDeleted || {}), ...Object.entries(remoteDeleted || {})].forEach(([id, tombstone]) => {
+        if (!result[id] || Number(tombstone.revision || 0) >= Number(result[id].revision || 0) || new Date(tombstone.updatedAt || 0) >= new Date(result[id].updatedAt || 0)) result[id] = tombstone;
+      });
+      return result;
+    }
+    function mergeRounds(localRounds, remoteRounds, deletedRounds) {
+      const deleted = mergeDeletedRounds(deletedRounds, {});
+      return mergeById(localRounds, remoteRounds).filter(round => {
+        const tombstone = deleted[String(round.id)];
+        return !tombstone || updatedValue(round) > updatedValue(tombstone);
+      });
+    }
+    function mergeQuestionsForRounds(localQuestions, remoteQuestions, roundsList) {
+      const liveRoundIds = new Set((roundsList || []).map(round => String(round.id)));
+      return mergeById(localQuestions, remoteQuestions).filter(question => liveRoundIds.has(String(question.round)));
     }
     function mergeStudents(localStudents, remoteStudents, localDeleted, remoteDeleted) {
       const deleted = mergeDeletedStudents(localDeleted, remoteDeleted);
@@ -777,8 +798,9 @@
         roundGroups:mergeRoundGroups(local.roundGroups, remote.roundGroups),
         students:mergeStudents(local.students, remote.students, local.deletedStudents, remote.deletedStudents),
         deletedStudents:mergeDeletedStudents(local.deletedStudents, remote.deletedStudents),
-        rounds:mergeById(local.rounds, remote.rounds),
-        questions:mergeById(local.questions, remote.questions),
+        deletedRounds:mergeDeletedRounds(local.deletedRounds, remote.deletedRounds),
+        rounds:mergeRounds(local.rounds, remote.rounds, mergeDeletedRounds(local.deletedRounds, remote.deletedRounds)),
+        questions:mergeQuestionsForRounds(local.questions, remote.questions, mergeRounds(local.rounds, remote.rounds, mergeDeletedRounds(local.deletedRounds, remote.deletedRounds))),
         progressHistory:mergeProgress(local.progressHistory, remote.progressHistory),
         settings:updatedValue(local.settings) >= updatedValue(remote.settings) ? local.settings : remote.settings,
         teacherSecurity:updatedValue(local.teacherSecurity) >= updatedValue(remote.teacherSecurity) ? local.teacherSecurity : remote.teacherSecurity
@@ -802,7 +824,7 @@
         source:{key:SHARED_KEY,kind:"canva-sheet"},
         classes:normalizeClasses(shared.classes),
         roundGroups:normalizeRoundGroups(shared.roundGroups),
-        students:cleanStudents(students), deletedStudents:shared.deletedStudents || defaultDeletedStudents(), rounds, questions, settings, teacherSecurity, progressHistory
+        students:cleanStudents(students), deletedStudents:shared.deletedStudents || defaultDeletedStudents(), deletedRounds:shared.deletedRounds || {}, rounds, questions, settings, teacherSecurity, progressHistory
       });
     }
 
@@ -942,6 +964,8 @@
                 const pendingSnapshot = JSON.parse(JSON.stringify(shared));
                 shared = mergeSharedData(latestSnapshot, pendingSnapshot);
                 shared.deletedStudents = mergeDeletedStudents(latestSnapshot.deletedStudents, pendingSnapshot.deletedStudents);
+                shared.deletedRounds = mergeDeletedRounds(latestSnapshot.deletedRounds, pendingSnapshot.deletedRounds);
+                shared.deletedRounds = mergeDeletedRounds(latestSnapshot.deletedRounds, pendingSnapshot.deletedRounds);
                 bindShared();
                 sharedRecord = latestRow;
                 remoteHasRecord = true;
@@ -1902,6 +1926,8 @@
         ? `Vòng “${round.name}” đang có ${linkedQuestions.length} câu hỏi. Xóa vòng sẽ xóa các câu hỏi thuộc vòng này. Lịch sử tiến độ đã lưu của học sinh sẽ được giữ nguyên. Tiếp tục?`
         : `Xóa vòng “${round.name}”? Lịch sử tiến độ đã lưu của học sinh sẽ được giữ nguyên.`;
       if (!confirm(warning)) return;
+      const deletedAt = now();
+      shared.deletedRounds = mergeDeletedRounds(shared.deletedRounds, {[String(round.id)]: {roundId:String(round.id), updatedAt:deletedAt, revision:Number(shared.revision || 0) + 1}});
       rounds = rounds.filter(item => String(item.id) !== String(round.id));
       questions = questions.filter(question => String(question.round) !== String(round.id));
       shared.rounds = rounds;
@@ -2302,6 +2328,7 @@
           roundGroups:normalizeRoundGroups(shared?.roundGroups),
           students:(Array.isArray(students) ? students : []).map(sanitizeStudent),
           deletedStudents:shared?.deletedStudents || defaultDeletedStudents(),
+          deletedRounds:shared?.deletedRounds || {},
           rounds:Array.isArray(rounds) ? rounds : [],
           questions:Array.isArray(questions) ? questions : [],
           settings:settings || {},

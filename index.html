@@ -385,9 +385,10 @@
          </div>
          <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <label class="sr-only" for="round-class-filter">Lọc vòng theo lớp</label>
-          <select id="round-class-filter" class="w-full sm:w-56 rounded-xl border-2 border-slate-200 p-3 font-bold bg-white">
-           <option value="">Tất cả lớp</option>
-          </select>
+          <select id="round-class-filter" class="w-full sm:w-44 rounded-xl border-2 border-slate-200 p-3 font-bold bg-white"><option value="">Tất cả lớp</option></select>
+          <label class="sr-only" for="round-lesson-filter">Lọc vòng theo nhóm bài học</label>
+          <select id="round-lesson-filter" class="w-full sm:w-52 rounded-xl border-2 border-slate-200 p-3 font-bold bg-white"><option value="">Tất cả nhóm bài học</option></select>
+          <button type="button" class="rounded-xl bg-indigo-100 px-4 py-2 font-black text-indigo-700 whitespace-nowrap" onclick="manageRoundGroups()">Quản lý nhóm</button>
           <button type="button" data-template-id="new-round-button" class="canva-button action rounded-xl bg-yellow-300 px-4 py-2 font-black whitespace-nowrap" onclick="newRound()" style="background: rgb(253, 224, 71); color: rgb(36, 48, 74); font-weight: 900; font-style: normal; font-size: 16px;">+ Thêm vòng</button>
          </div>
         </div>
@@ -475,6 +476,8 @@
       <form id="new-round-form" class="mt-5">
        <label class="block font-extrabold" for="new-round-class">Lớp</label>
        <select id="new-round-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
+       <label class="block font-extrabold mt-4" for="new-round-group">Nhóm bài học</label>
+       <select id="new-round-group" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
        <label class="block font-extrabold mt-4" for="new-round-name">Tên vòng</label>
        <input id="new-round-name" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
        <div class="flex flex-wrap gap-3 mt-5">
@@ -550,12 +553,47 @@
       const stamp = now();
       return Object.fromEntries([...LEGACY_STUDENT_IDS].map(id => [id, {studentId:id, updatedAt:stamp, revision:1}]));
     }
+    function defaultRoundGroups() {
+      const stamp = new Date().toISOString();
+      return [
+        {id:"group-vocabulary",name:"Từ vựng",isDefault:true,updatedAt:stamp},
+        {id:"group-grammar",name:"Ngữ pháp",isDefault:true,updatedAt:stamp},
+        {id:"group-phrasal-verbs",name:"Phrasal verbs",isDefault:true,updatedAt:stamp},
+        {id:"group-mixed-tests",name:"Đề kiểm tra tổng hợp",isDefault:true,updatedAt:stamp}
+      ];
+    }
+    function normalizeRoundGroups(list) {
+      const source = Array.isArray(list) ? list : [];
+      const byId = new Map();
+      source.filter(item => item && item.id != null && String(item.name || "").trim()).forEach(item => {
+        const id = String(item.id);
+        const normalized = {...item,id,name:String(item.name).trim(),isDefault:Boolean(item.isDefault),deleted:Boolean(item.deleted),updatedAt:item.updatedAt || now()};
+        const previous = byId.get(id);
+        if (!previous || new Date(normalized.updatedAt || 0) >= new Date(previous.updatedAt || 0)) byId.set(id,normalized);
+      });
+      const defaults = defaultRoundGroups();
+      defaults.forEach(item => {
+        if (!byId.has(item.id)) byId.set(item.id,item);
+        else byId.set(item.id,{...item,...byId.get(item.id),isDefault:true});
+      });
+      return [...byId.values()];
+    }
+    function mergeRoundGroups(local, remote) {
+      const byId = new Map();
+      [...normalizeRoundGroups(local),...normalizeRoundGroups(remote)].forEach(item => {
+        const existing = byId.get(String(item.id));
+        if (!existing || new Date(item.updatedAt || 0) >= new Date(existing.updatedAt || 0)) byId.set(String(item.id),item);
+      });
+      return normalizeRoundGroups([...byId.values()]);
+    }
+
     const defaultShared = () => ({
       version:19,
       schemaVersion:4,
       revision:1,
       updatedAt:new Date().toISOString(),
       classes:[],
+      roundGroups:defaultRoundGroups(),
       students:[],
       deletedStudents:defaultDeletedStudents(),
       rounds:[
@@ -611,6 +649,7 @@
     }
     function bindShared() {
       shared.classes = normalizeClasses(shared.classes);
+      shared.roundGroups = normalizeRoundGroups(shared.roundGroups);
       shared.deletedStudents = {...defaultDeletedStudents(), ...(shared.deletedStudents || {})};
       shared.students = normalizeStudents(shared.students);
       classes = shared.classes || [];
@@ -735,6 +774,7 @@
         revision:Math.max(Number(local.revision || 0), Number(remote.revision || 0)),
         updatedAt:updatedValue(local) >= updatedValue(remote) ? local.updatedAt : remote.updatedAt,
         classes:mergeById(normalizeClasses(local.classes), normalizeClasses(remote.classes)),
+        roundGroups:mergeRoundGroups(local.roundGroups, remote.roundGroups),
         students:mergeStudents(local.students, remote.students, local.deletedStudents, remote.deletedStudents),
         deletedStudents:mergeDeletedStudents(local.deletedStudents, remote.deletedStudents),
         rounds:mergeById(local.rounds, remote.rounds),
@@ -761,6 +801,7 @@
         updatedAt:shared.updatedAt,
         source:{key:SHARED_KEY,kind:"canva-sheet"},
         classes:normalizeClasses(shared.classes),
+        roundGroups:normalizeRoundGroups(shared.roundGroups),
         students:cleanStudents(students), deletedStudents:shared.deletedStudents || defaultDeletedStudents(), rounds, questions, settings, teacherSecurity, progressHistory
       });
     }
@@ -803,6 +844,7 @@
           // Remote is canonical on startup; only an explicit pending mutation may merge into it.
           const incomingShared = {...remote, schemaVersion:Number(remote.schemaVersion || 1)};
           incomingShared.classes = normalizeClasses(incomingShared.classes);
+          incomingShared.roundGroups = normalizeRoundGroups(incomingShared.roundGroups);
           const hadDeletedSamples = Array.isArray(incomingShared.students) && incomingShared.students.some(isDeletedSampleStudent);
           shared = pendingLocalMutation && outbox?.snapshot ? mergeSharedData(incomingShared, outbox.snapshot) : incomingShared;
           shared.schemaVersion = Math.max(Number(shared.schemaVersion || 1), Number(incomingShared.schemaVersion || 1));
@@ -1742,15 +1784,123 @@
       return getClassById(groupKey)?.name || "Chưa xếp lớp";
     }
 
+    let roundLessonFilter = "";
+
+    function getRoundLessonGroupId(round) {
+      const id = String(round?.lessonGroupId ?? "");
+      return (shared.roundGroups || []).some(group => !group.deleted && String(group.id) === id) ? id : "__unassigned_group__";
+    }
+
+    function getRoundLessonGroupName(groupId) {
+      if (groupId === "__unassigned_group__") return "Chưa phân loại";
+      return (shared.roundGroups || []).find(group => !group.deleted && String(group.id) === String(groupId))?.name || "Chưa phân loại";
+    }
+
+    function renderRoundLessonFilter() {
+      const select = document.getElementById("round-lesson-filter");
+      if (!select) return;
+      const groups = normalizeRoundGroups(shared.roundGroups).filter(group => !group.deleted);
+      select.innerHTML = '<option value="">Tất cả nhóm bài học</option>' +
+        groups.map(group => `<option value="${escapeHtml(group.id)}">${escapeHtml(group.name)}</option>`).join("") +
+        '<option value="__unassigned_group__">Chưa phân loại</option>';
+      const valid = ["", "__unassigned_group__", ...groups.map(group => String(group.id))];
+      if (!valid.includes(roundLessonFilter)) roundLessonFilter = "";
+      select.value = roundLessonFilter;
+      select.onchange = () => { roundLessonFilter = select.value; renderRounds(); };
+    }
+
+    function fillRoundLessonGroupSelect(select, selectedId = "") {
+      if (!select) return;
+      const groups = normalizeRoundGroups(shared.roundGroups).filter(group => !group.deleted);
+      select.innerHTML = '<option value="">Chọn nhóm bài học</option>' +
+        groups.map(group => `<option value="${escapeHtml(group.id)}">${escapeHtml(group.name)}</option>`).join("") +
+        '<option value="__unassigned_group__">Chưa phân loại</option>';
+      select.value = groups.some(group => String(group.id) === String(selectedId)) ? String(selectedId) : (selectedId === "__unassigned_group__" ? selectedId : "");
+    }
+
+    async function updateRoundLessonGroup(roundId, groupId) {
+      const round = rounds.find(item => String(item.id) === String(roundId));
+      if (!round) return;
+      round.lessonGroupId = groupId === "__unassigned_group__" ? "" : String(groupId || "");
+      touchEntity(round);
+      shared.rounds = rounds;
+      markSharedChanged();
+      await persistShared(true);
+      renderRounds();
+      toast("Đã cập nhật nhóm bài học cho vòng.");
+    }
+
+    async function manageRoundGroups() {
+      if (!validTeacherSession()) return requestTeacherAccess();
+      const groups = normalizeRoundGroups(shared.roundGroups).filter(group => !group.deleted);
+      const choice = prompt("Quản lý nhóm bài học:\n1. Tạo nhóm mới\n2. Đổi tên nhóm\n3. Xóa nhóm\n\nNhập 1, 2 hoặc 3:", "1");
+      if (choice === null) return;
+      if (choice.trim() === "1") {
+        const rawName = prompt("Tên nhóm bài học mới:");
+        if (rawName === null) return;
+        const name = rawName.trim();
+        if (!name) return toast("Tên nhóm không được để trống.");
+        if (groups.some(group => group.name.toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"))) return toast("Tên nhóm này đã tồn tại.");
+        shared.roundGroups = normalizeRoundGroups([...groups, {id:`lesson-${Date.now()}-${Math.random().toString(16).slice(2)}`,name,isDefault:false,updatedAt:now()}]);
+      } else if (choice.trim() === "2" || choice.trim() === "3") {
+        if (!groups.length) return toast("Chưa có nhóm để thao tác.");
+        const list = groups.map((group,index) => `${index+1}. ${group.name}${group.isDefault ? " (mặc định)" : ""}`).join("\n");
+        const rawIndex = prompt(`Chọn số nhóm:\n${list}`);
+        if (rawIndex === null) return;
+        const group = groups[Number(rawIndex)-1];
+        if (!group) return toast("Số nhóm không hợp lệ.");
+        if (choice.trim() === "2") {
+          const rawName = prompt("Tên nhóm mới:", group.name);
+          if (rawName === null) return;
+          const name = rawName.trim();
+          if (!name) return toast("Tên nhóm không được để trống.");
+          if (groups.some(other => other.id !== group.id && other.name.toLocaleLowerCase("vi-VN") === name.toLocaleLowerCase("vi-VN"))) return toast("Tên nhóm này đã tồn tại.");
+          shared.roundGroups = normalizeRoundGroups(groups.map(item => item.id === group.id ? {...item,name,updatedAt:now()} : item));
+        } else {
+          if (group.isDefault) return toast("Không thể xóa nhóm mặc định. M có thể đổi tên nhóm này.");
+          if (!confirm(`Xóa nhóm “${group.name}”? Các vòng sẽ được chuyển sang “Chưa phân loại”, không bị xóa.`)) return;
+          rounds.forEach(round => { if (String(round.lessonGroupId || "") === String(group.id)) { round.lessonGroupId = ""; touchEntity(round); } });
+          shared.rounds = rounds;
+          shared.roundGroups = normalizeRoundGroups(groups.filter(item => item.id !== group.id));
+        }
+      } else return toast("Lựa chọn không hợp lệ.");
+      markSharedChanged();
+      await persistShared(true);
+      renderRounds();
+      toast("Đã cập nhật nhóm bài học.");
+    }
+
+    async function deleteRound(roundId) {
+      if (!validTeacherSession()) return requestTeacherAccess();
+      const round = rounds.find(item => String(item.id) === String(roundId));
+      if (!round) return;
+      const linkedQuestions = questions.filter(question => String(question.round) === String(round.id));
+      const warning = linkedQuestions.length
+        ? `Vòng “${round.name}” đang có ${linkedQuestions.length} câu hỏi. Xóa vòng sẽ xóa các câu hỏi thuộc vòng này. Lịch sử tiến độ đã lưu của học sinh sẽ được giữ nguyên. Tiếp tục?`
+        : `Xóa vòng “${round.name}”? Lịch sử tiến độ đã lưu của học sinh sẽ được giữ nguyên.`;
+      if (!confirm(warning)) return;
+      rounds = rounds.filter(item => String(item.id) !== String(round.id));
+      questions = questions.filter(question => String(question.round) !== String(round.id));
+      shared.rounds = rounds;
+      shared.questions = questions;
+      markSharedChanged();
+      await persistShared(true);
+      renderRounds();
+      renderQuestionBank?.();
+      toast(`Đã xóa vòng ${round.name}.`);
+    }
+
     function renderRounds() {
       const box = document.getElementById("round-editor");
       if (!box) return;
       renderRoundClassFilter();
+      renderRoundLessonFilter();
       box.innerHTML = "";
 
       const filteredRounds = rounds.filter(round => {
-        if (!roundClassFilter) return true;
-        return getRoundGroupKey(round) === roundClassFilter;
+        const matchesClass = !roundClassFilter || getRoundGroupKey(round) === roundClassFilter;
+        const matchesLesson = !roundLessonFilter || getRoundLessonGroupId(round) === roundLessonFilter;
+        return matchesClass && matchesLesson;
       });
 
       if (!filteredRounds.length) {
@@ -1797,12 +1947,16 @@
           const count = questions.filter(q => q.round === round.id).length;
           const card = document.createElement("article");
           card.className = "rounded-2xl border-2 border-slate-100 p-5 bg-white";
-          card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button></div>`;
+          card.innerHTML = `<span class="inline-block rounded-full px-3 py-1 text-xs font-black text-white" style="background:${round.color}">VÒNG ${round.id}</span><span class="inline-block ml-2 rounded-full px-3 py-1 text-xs font-black ${round.locked ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">${round.locked ? "🔒 ĐANG KHÓA" : "🔓 ĐANG MỞ"}</span><h3 class="font-black text-xl mt-3">${escapeHtml(round.name)}</h3><p class="font-semibold text-slate-500 mt-2">${count} câu hỏi đã gán</p><label class="block text-sm font-extrabold mt-4" for="round-name-${round.id}">Tên vòng</label><input id="round-name-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3" value="${escapeHtml(round.name)}"><label class="block text-sm font-extrabold mt-4" for="round-class-${round.id}">Lớp</label><select id="round-class-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"><option value="">Chưa xếp lớp</option></select><label class="block text-sm font-extrabold mt-4" for="round-lesson-group-${round.id}">Nhóm bài học</label><select id="round-lesson-group-${round.id}" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="save rounded-xl bg-blue-100 px-4 py-2 font-black text-blue-700">Lưu tên</button><button type="button" class="toggle rounded-xl ${round.locked ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-4 py-2 font-black">${round.locked ? "MỞ VÒNG" : "KHÓA VÒNG"}</button><button type="button" class="delete-round rounded-xl bg-rose-100 px-4 py-2 font-black text-rose-700">Xóa vòng</button></div>`;
           const classSelect = card.querySelector(`#round-class-${round.id}`);
           renderRoundClassSelect(classSelect, round.classId);
           classSelect.onchange = async () => {
             await updateRoundClass(round.id, classSelect.value);
           };
+          const lessonGroupSelect = card.querySelector(`#round-lesson-group-${round.id}`);
+          fillRoundLessonGroupSelect(lessonGroupSelect, getRoundLessonGroupId(round));
+          lessonGroupSelect.onchange = async () => await updateRoundLessonGroup(round.id, lessonGroupSelect.value);
+          card.querySelector(".delete-round").onclick = async () => await deleteRound(round.id);
 
           card.querySelector(".save").onclick = () => {
             round.name = card.querySelector(`#round-name-${round.id}`).value.trim() || round.name;
@@ -1896,14 +2050,16 @@
     function openNewRoundModal() {
       const modal = document.getElementById("new-round-modal");
       const classSelect = document.getElementById("new-round-class");
+      const lessonGroupSelect = document.getElementById("new-round-group");
       const nameInput = document.getElementById("new-round-name");
-      if (!modal || !classSelect || !nameInput) return;
+      if (!modal || !classSelect || !lessonGroupSelect || !nameInput) return;
 
       classSelect.innerHTML =
         '<option value="">Chọn lớp</option>' +
         classes.map(cls => `<option value="${escapeHtml(cls.id)}">${escapeHtml(cls.name)}</option>`).join("") +
         '<option value="__unassigned__">Chưa xếp lớp</option>';
 
+      fillRoundLessonGroupSelect(lessonGroupSelect, roundLessonFilter && roundLessonFilter !== "__unassigned_group__" ? roundLessonFilter : "");
       const nextId = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
       nameInput.value = `Vòng ${nextId}`;
       classSelect.value = roundClassFilter && roundClassFilter !== "__unassigned__" &&
@@ -1927,11 +2083,13 @@
       event.preventDefault();
 
       const classValue = document.getElementById("new-round-class").value;
+      const lessonGroupValue = document.getElementById("new-round-group").value;
       const nameInput = document.getElementById("new-round-name");
       const submitButton = document.getElementById("new-round-submit");
       const name = nameInput.value.trim();
 
       if (!classValue) return toast("Hãy chọn lớp cho vòng.");
+      if (!lessonGroupValue) return toast("Hãy chọn nhóm bài học cho vòng.");
       if (!name) return toast("Tên vòng không được để trống.");
 
       const id = Math.max(0, ...rounds.map(r => Number(r.id) || 0)) + 1;
@@ -1944,7 +2102,8 @@
           name,
           color: "#a875ff",
           locked: true,
-          classId
+          classId,
+          lessonGroupId: lessonGroupValue === "__unassigned_group__" ? "" : String(lessonGroupValue)
         }));
         shared.rounds = rounds;
         markSharedChanged();
@@ -2117,6 +2276,7 @@
           source:{key:SHARED_KEY,kind:confirmedCloud ? "canva-sheet-confirmed" : "local-cache-not-confirmed"},
           syncStatus:confirmedCloud ? "confirmed-cloud" : "cache-not-confirmed",
           classes:normalizeClasses(shared?.classes),
+          roundGroups:normalizeRoundGroups(shared?.roundGroups),
           students:(Array.isArray(students) ? students : []).map(sanitizeStudent),
           deletedStudents:shared?.deletedStudents || defaultDeletedStudents(),
           rounds:Array.isArray(rounds) ? rounds : [],
@@ -2151,12 +2311,13 @@
           if (!Array.isArray(data.students) || !Array.isArray(data.rounds) || !Array.isArray(data.questions)) throw new Error("invalid");
           const stamp = now();
           const restoredClasses = normalizeClasses(data.classes);
+          const restoredRoundGroups = normalizeRoundGroups(data.roundGroups);
           students = cleanStudents(data.students).map(s => touchEntity({...s,updatedAt:stamp}));
           rounds = data.rounds.map(r => touchEntity({...r,classId:r?.classId != null ? String(r.classId) : "",locked:typeof r.locked === "boolean" ? r.locked : true,updatedAt:stamp}));
           questions = data.questions.map(q => touchEntity({...q,updatedAt:stamp}));
           settings = touchEntity({...settings,...(data.settings || {}),updatedAt:stamp});
           progressHistory = {};
-          shared = {...shared,classes:restoredClasses,students,rounds,questions,settings,progressHistory,updatedAt:stamp,schemaVersion:4};
+          shared = {...shared,classes:restoredClasses,roundGroups:restoredRoundGroups,students,rounds,questions,settings,progressHistory,updatedAt:stamp,schemaVersion:4};
           markSharedChanged(); await persistShared(true);
           renderProfiles(); openTeacherTab("questions"); toast("Đã khôi phục và đồng bộ dữ liệu.");
         } catch { toast("Tệp sao lưu không hợp lệ."); }

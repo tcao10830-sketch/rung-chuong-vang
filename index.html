@@ -104,6 +104,17 @@
             return { isOk: false, error };
           }
         },
+        // Fetch the newest shared snapshot immediately before each write.
+        // This narrows cross-device overwrite races; the app merges progress by student/round.
+        async readLatest() {
+          try {
+            const rows = await readRows();
+            return { isOk:true, record:rows.find(row => row.data_key === (window.SUPABASE_DATA_KEY || "shared-app-data-draft")) || null };
+          } catch (error) {
+            console.error("Supabase pre-write read error:", error);
+            return { isOk:false, error };
+          }
+        },
         async create(record) {
           try {
             const body = {
@@ -872,9 +883,30 @@
         if (!window.dataSdk) return;
         syncing = true;
         setSyncStatus("Đang đồng bộ…");
-        // Queue the snapshot itself so a delayed save cannot write stale data.
+        // Serialize writes in this browser; read/merge server state before each write to reduce cross-device lost updates.
         writeChain = writeChain.then(async () => {
           const wasMigration = Boolean(outbox?.migration);
+          // Merge the latest server state into this device's pending state before
+          // replacing the shared snapshot. This preserves other students' progress
+          // when their answers arrived since this device last read the server.
+          if (typeof window.dataSdk.readLatest === "function") {
+            const latestResult = await window.dataSdk.readLatest();
+            if (!latestResult.isOk) throw (latestResult.error || new Error("Không đọc được dữ liệu mới nhất trước khi lưu."));
+            const latestRow = latestResult.record;
+            if (latestRow?.data_value) {
+              let latestSnapshot;
+              try { latestSnapshot = JSON.parse(latestRow.data_value); } catch { latestSnapshot = null; }
+              if (latestSnapshot && typeof latestSnapshot === "object") {
+                const pendingSnapshot = JSON.parse(JSON.stringify(shared));
+                shared = mergeSharedData(latestSnapshot, pendingSnapshot);
+                shared.deletedStudents = mergeDeletedStudents(latestSnapshot.deletedStudents, pendingSnapshot.deletedStudents);
+                bindShared();
+                sharedRecord = latestRow;
+                remoteHasRecord = true;
+                remoteRevision = Number(latestRow.revision || latestSnapshot.revision || 0);
+              }
+            }
+          }
           markSharedChanged();
           const record = {
             data_type:DATA_TYPE,

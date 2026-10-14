@@ -596,6 +596,10 @@
       progressHistory:{}
     });
 
+    // UI-only collapse state: does not touch game data or sync.
+    const collapsedMapGroups = new Set();
+    const collapsedProgressGroups = new Set();
+
     let shared = defaultShared();
     let classes = shared.classes, students = shared.students, rounds = shared.rounds, questions = shared.questions, settings = shared.settings, teacherSecurity = shared.teacherSecurity, progressHistory = shared.progressHistory;
     let backendRecords = [];
@@ -1301,6 +1305,20 @@
       },0));
     }
 
+    function toggleMapGroup(groupId) {
+      const key = String(groupId);
+      if (collapsedMapGroups.has(key)) collapsedMapGroups.delete(key);
+      else collapsedMapGroups.add(key);
+      renderHome();
+    }
+
+    function toggleProgressGroup(groupId) {
+      const key = String(groupId);
+      if (collapsedProgressGroups.has(key)) collapsedProgressGroups.delete(key);
+      else collapsedProgressGroups.add(key);
+      if (activeStudent) renderStudentProgress(activeStudent, getStudentRounds(activeStudent));
+    }
+
     function renderStudentProgress(student, visibleRounds) {
       const totalStars = Number(student?.stars || 0);
       const totalEl = document.getElementById("student-progress-total-stars");
@@ -1324,7 +1342,9 @@
       list.innerHTML = [...roundsByLessonGroup.entries()].map(([groupId, groupRounds]) => {
         const groupStars = groupRounds.reduce((sum, round) => sum + getRoundStars(student, round.id), 0);
         const groupMaxStars = groupRounds.reduce((sum, round) => sum + getRoundQuestionCount(round.id), 0);
-        const groupHeader = `<div class="col-span-full rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 flex flex-wrap items-center justify-between gap-2"><div class="font-black text-indigo-900">📚 ${escapeHtml(getRoundLessonGroupName(groupId))}</div><div class="text-sm font-bold text-indigo-700">${groupRounds.length} vòng · ⭐ ${groupStars}/${groupMaxStars} sao</div></div>`;
+        const progressCollapsed = collapsedProgressGroups.has(String(groupId));
+        const safeGroupKey = String(groupId).replace(/[^a-zA-Z0-9_-]/g, "_");
+        const groupHeader = `<button type="button" aria-expanded="${!progressCollapsed}" aria-controls="student-progress-group-${safeGroupKey}" onclick="toggleProgressGroup('${String(groupId).replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')" class="col-span-full w-full text-left rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 flex flex-wrap items-center justify-between gap-2"><span class="flex items-center gap-2 font-black text-indigo-900"><span aria-hidden="true">${progressCollapsed ? "▸" : "▾"}</span> 📚 ${escapeHtml(getRoundLessonGroupName(groupId))}</span><span class="text-sm font-bold text-indigo-700">${groupRounds.length} vòng · ⭐ ${groupStars}/${groupMaxStars} sao</span></button>`;
         const cards = groupRounds.map(round => {
           const item = progressHistory[progressKey(student.id,round.id)] || null;
           const attempts = progressAttempts(item);
@@ -1344,7 +1364,7 @@
             <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-500"><span>${qsCount ? `${bestCorrect}/${qsCount} câu đúng ở lượt tốt nhất` : "Chưa có câu hỏi"}</span><span class="rounded-full px-2 py-1 ${stateClass}">${state}</span></div>
           </article>`;
         }).join("");
-        return groupHeader + cards;
+        return groupHeader + `<div id="student-progress-group-${safeGroupKey}" class="col-span-full grid gap-3 ${progressCollapsed ? "hidden" : ""}">${cards}</div>`;
       }).join("");
     }
 
@@ -1380,10 +1400,19 @@
         roundsByLessonGroup.get(groupId).push(round);
       });
       roundsByLessonGroup.forEach((groupRounds, groupId) => {
-        const heading = document.createElement("div");
-        heading.className = "sm:col-span-3 rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 font-black text-indigo-900";
-        heading.textContent = `📚 ${getRoundLessonGroupName(groupId)} · ${groupRounds.length} vòng`;
+        const collapsed = collapsedMapGroups.has(String(groupId));
+        const safeGroupKey = String(groupId).replace(/[^a-zA-Z0-9_-]/g, "_");
+        const heading = document.createElement("button");
+        heading.type = "button";
+        heading.className = "sm:col-span-3 w-full text-left rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 font-black text-indigo-900 flex items-center justify-between gap-3";
+        heading.setAttribute("aria-expanded", String(!collapsed));
+        heading.setAttribute("aria-controls", `student-map-group-${safeGroupKey}`);
+        heading.innerHTML = `<span>📚 ${escapeHtml(getRoundLessonGroupName(groupId))} · ${groupRounds.length} vòng</span><span aria-hidden="true" class="text-xl">${collapsed ? "▸" : "▾"}</span>`;
+        heading.onclick = () => toggleMapGroup(groupId);
         map.appendChild(heading);
+        const cardsWrap = document.createElement("div");
+        cardsWrap.id = `student-map-group-${safeGroupKey}`;
+        cardsWrap.className = `contents ${collapsed ? "hidden" : ""}`;
         groupRounds.forEach(round => {
           const card = document.createElement("button");
           card.type = "button";
@@ -1392,8 +1421,9 @@
           card.style.background = round.locked ? "#e2e8f0" : getRoundDisplayColor(round);
           card.innerHTML = `<span class="block text-3xl">${round.locked ? "🔒" : round.id}</span><span class="block mt-2">${escapeHtml(round.name)}</span><span class="block text-xs mt-2">${round.locked ? "ĐANG KHÓA" : "ĐANG MỞ"}</span>`;
           card.onclick = () => startRound(round.id);
-          map.appendChild(card);
+          cardsWrap.appendChild(card);
         });
+        map.appendChild(cardsWrap);
       });
     }
 

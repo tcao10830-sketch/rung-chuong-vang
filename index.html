@@ -1305,15 +1305,19 @@
       },0));
     }
 
+    function getStudentCollapseKey(studentId, groupId) {
+      return `${String(studentId || "guest")}::${String(groupId)}`;
+    }
+
     function toggleMapGroup(groupId) {
-      const key = String(groupId);
+      const key = getStudentCollapseKey(activeStudent?.id, groupId);
       if (collapsedMapGroups.has(key)) collapsedMapGroups.delete(key);
       else collapsedMapGroups.add(key);
       renderHome();
     }
 
     function toggleProgressGroup(groupId) {
-      const key = String(groupId);
+      const key = getStudentCollapseKey(activeStudent?.id, groupId);
       if (collapsedProgressGroups.has(key)) collapsedProgressGroups.delete(key);
       else collapsedProgressGroups.add(key);
       if (activeStudent) renderStudentProgress(activeStudent, getStudentRounds(activeStudent));
@@ -1342,7 +1346,7 @@
       list.innerHTML = [...roundsByLessonGroup.entries()].map(([groupId, groupRounds]) => {
         const groupStars = groupRounds.reduce((sum, round) => sum + getRoundStars(student, round.id), 0);
         const groupMaxStars = groupRounds.reduce((sum, round) => sum + getRoundQuestionCount(round.id), 0);
-        const progressCollapsed = collapsedProgressGroups.has(String(groupId));
+        const progressCollapsed = collapsedProgressGroups.has(getStudentCollapseKey(student?.id, groupId));
         const safeGroupKey = String(groupId).replace(/[^a-zA-Z0-9_-]/g, "_");
         const groupHeader = `<button type="button" aria-expanded="${!progressCollapsed}" aria-controls="student-progress-group-${safeGroupKey}" onclick="toggleProgressGroup('${String(groupId).replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')" class="col-span-full w-full text-left rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 flex flex-wrap items-center justify-between gap-2"><span class="flex items-center gap-2 font-black text-indigo-900"><span aria-hidden="true">${progressCollapsed ? "▸" : "▾"}</span> 📚 ${escapeHtml(getRoundLessonGroupName(groupId))}</span><span class="text-sm font-bold text-indigo-700">${groupRounds.length} vòng · ⭐ ${groupStars}/${groupMaxStars} sao</span></button>`;
         const cards = groupRounds.map(round => {
@@ -1400,7 +1404,7 @@
         roundsByLessonGroup.get(groupId).push(round);
       });
       roundsByLessonGroup.forEach((groupRounds, groupId) => {
-        const collapsed = collapsedMapGroups.has(String(groupId));
+        const collapsed = collapsedMapGroups.has(getStudentCollapseKey(activeStudent?.id, groupId));
         const safeGroupKey = String(groupId).replace(/[^a-zA-Z0-9_-]/g, "_");
         const heading = document.createElement("button");
         heading.type = "button";

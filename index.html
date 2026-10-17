@@ -1238,6 +1238,7 @@
       const list = document.getElementById("profile-list");
       list.innerHTML = "";
       students.forEach(student => {
+        syncStudentTotalStars(student);
         const button = document.createElement("button");
         button.type = "button";
         button.className = "profile-card soft-card p-4 text-center font-black";
@@ -1303,6 +1304,39 @@
         const correct = (attempt.answers || []).filter(answer => answer.correct).length;
         return Math.min(maxStars,total + correct);
       },0));
+    }
+
+    // Reconcile the profile total with the per-round star records. The per-round
+    // records are the source of truth whenever this student has round-level data.
+    function calculateStudentRoundStars(student) {
+      if (!student || student.id === "guest") return 0;
+      const studentRounds = getStudentRounds(student);
+      const hasRoundEvidence = studentRounds.some(round => {
+        const roundId = String(round.id);
+        const hasSavedStars = Object.prototype.hasOwnProperty.call(student.roundStars || {}, roundId);
+        const history = progressHistory[progressKey(student.id,round.id)];
+        return hasSavedStars || progressAttempts(history).length > 0;
+      });
+      // Preserve legacy totals when there is no round-level history to rebuild from.
+      if (!hasRoundEvidence) return Math.max(0,Number(student.stars) || 0);
+      return studentRounds.reduce((total,round) => total + getRoundStars(student,round.id),0);
+    }
+
+    function syncStudentTotalStars(student) {
+      if (!student || student.id === "guest") return false;
+      const total = calculateStudentRoundStars(student);
+      const current = Math.max(0,Number(student.stars) || 0);
+      if (current === total) return false;
+      student.stars = total;
+      touchEntity(student);
+      if (Array.isArray(students)) {
+        const index = students.findIndex(item => String(item.id) === String(student.id));
+        if (index >= 0) students[index] = student;
+      }
+      shared.students = cleanStudents(students);
+      markSharedChanged();
+      persistShared(true);
+      return true;
     }
 
     function getStudentCollapseKey(studentId, groupId) {
@@ -1374,7 +1408,10 @@
 
     function renderHome() {
       if (!activeStudent) return;
-      if (activeStudent.id !== "guest") activeStudent = students.find(s => s.id === activeStudent.id) || activeStudent;
+      if (activeStudent.id !== "guest") {
+        activeStudent = students.find(s => String(s.id) === String(activeStudent.id)) || activeStudent;
+        syncStudentTotalStars(activeStudent);
+      }
 
       const visibleRounds = getStudentRounds(activeStudent);
 

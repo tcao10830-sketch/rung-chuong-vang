@@ -1,0 +1,385 @@
+/*
+ * STAR REWARDS ADD-ON for Rung Chuong Vang
+ * Load this file AFTER the app's existing inline <script>.
+ * It does not rewrite students, classes, rounds, questions, stars or progressHistory.
+ * It adds one isolated namespace: shared.starRewardSystem.
+ */
+(() => {
+  "use strict";
+
+  const ADDON_KEY = "starRewardSystem";
+  const $ = (id) => document.getElementById(id);
+  const esc = (value) => typeof escapeHtml === "function"
+    ? escapeHtml(value)
+    : String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  const stamp = () => new Date().toISOString();
+  const uid = (prefix = "reward") => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const emptyStore = () => ({ version: 1, plansByClass: {}, claimsByKey: {} });
+  const clone = (value) => JSON.parse(JSON.stringify(value ?? {}));
+
+  function normalizeStore(value) {
+    const source = value && typeof value === "object" ? value : {};
+    const result = emptyStore();
+    result.plansByClass = source.plansByClass && typeof source.plansByClass === "object" ? source.plansByClass : {};
+    result.claimsByKey = source.claimsByKey && typeof source.claimsByKey === "object" ? source.claimsByKey : {};
+    Object.entries(result.plansByClass).forEach(([classId, plan]) => {
+      const p = plan && typeof plan === "object" ? plan : {};
+      const byId = new Map();
+      (Array.isArray(p.milestones) ? p.milestones : []).forEach(item => {
+        if (!item || !item.id || !String(item.title || "").trim()) return;
+        const id = String(item.id);
+        const current = byId.get(id);
+        if (!current || Date.parse(item.updatedAt || 0) >= Date.parse(current.updatedAt || 0)) {
+          byId.set(id, {
+            id,
+            stars: Math.max(1, Math.floor(Number(item.stars) || 1)),
+            title: String(item.title).trim(),
+            description: String(item.description || "").trim(),
+            createdAt: item.createdAt || stamp(),
+            updatedAt: item.updatedAt || stamp()
+          });
+        }
+      });
+      result.plansByClass[String(classId)] = {
+        milestones: [...byId.values()].sort((a, b) => a.stars - b.stars),
+        deletedMilestoneIds: [...new Set((Array.isArray(p.deletedMilestoneIds) ? p.deletedMilestoneIds : []).map(String))],
+        updatedAt: p.updatedAt || stamp()
+      };
+    });
+    Object.entries(result.claimsByKey).forEach(([key, claim]) => {
+      if (!claim || typeof claim !== "object") delete result.claimsByKey[key];
+      else result.claimsByKey[key] = {
+        awarded: Boolean(claim.awarded),
+        awardedAt: claim.awardedAt || null,
+        updatedAt: claim.updatedAt || stamp()
+      };
+    });
+    return result;
+  }
+
+  function mergeStore(localValue, remoteValue) {
+    const local = normalizeStore(localValue);
+    const remote = normalizeStore(remoteValue);
+    const merged = emptyStore();
+    const classIds = new Set([...Object.keys(local.plansByClass), ...Object.keys(remote.plansByClass)]);
+    classIds.forEach(classId => {
+      const a = local.plansByClass[classId] || { milestones: [], deletedMilestoneIds: [] };
+      const b = remote.plansByClass[classId] || { milestones: [], deletedMilestoneIds: [] };
+      const deleted = new Set([...(a.deletedMilestoneIds || []), ...(b.deletedMilestoneIds || [])].map(String));
+      const byId = new Map();
+      [...(a.milestones || []), ...(b.milestones || [])].forEach(item => {
+        const id = String(item.id);
+        const old = byId.get(id);
+        if (!old || Date.parse(item.updatedAt || 0) >= Date.parse(old.updatedAt || 0)) byId.set(id, item);
+      });
+      merged.plansByClass[classId] = {
+        milestones: [...byId.values()].filter(item => !deleted.has(String(item.id))).sort((x, y) => x.stars - y.stars),
+        deletedMilestoneIds: [...deleted],
+        updatedAt: Date.parse(a.updatedAt || 0) >= Date.parse(b.updatedAt || 0) ? (a.updatedAt || stamp()) : (b.updatedAt || stamp())
+      };
+    });
+    const claimKeys = new Set([...Object.keys(local.claimsByKey), ...Object.keys(remote.claimsByKey)]);
+    claimKeys.forEach(key => {
+      const a = local.claimsByKey[key], b = remote.claimsByKey[key];
+      if (!a) merged.claimsByKey[key] = b;
+      else if (!b) merged.claimsByKey[key] = a;
+      else merged.claimsByKey[key] = Date.parse(a.updatedAt || 0) >= Date.parse(b.updatedAt || 0) ? a : b;
+    });
+    return merged;
+  }
+
+  function store() {
+    if (!shared || typeof shared !== "object") throw new Error("Chưa kết nối được dữ liệu ứng dụng.");
+    if (!shared[ADDON_KEY]) shared[ADDON_KEY] = emptyStore();
+    shared[ADDON_KEY] = normalizeStore(shared[ADDON_KEY]);
+    return shared[ADDON_KEY];
+  }
+
+  // Preserve the add-on namespace through the app's existing shared-data serializer/merger.
+  // Existing fields remain handled by the original app functions.
+  function installPersistenceBridge() {
+    if (window.__starRewardPersistenceBridgeInstalled) return;
+    if (typeof buildSnapshot !== "function" || typeof mergeSharedData !== "function") return;
+    window.__starRewardPersistenceBridgeInstalled = true;
+
+    const originalBuildSnapshot = buildSnapshot;
+    buildSnapshot = function () {
+      const snapshot = JSON.parse(originalBuildSnapshot());
+      snapshot[ADDON_KEY] = normalizeStore(shared?.[ADDON_KEY]);
+      return JSON.stringify(snapshot);
+    };
+
+    const originalMergeSharedData = mergeSharedData;
+    mergeSharedData = function (local, remote) {
+      const result = originalMergeSharedData(local, remote);
+      result[ADDON_KEY] = mergeStore(local?.[ADDON_KEY], remote?.[ADDON_KEY]);
+      return result;
+    };
+  }
+
+  function getClassId(student) {
+    if (!student) return "";
+    const direct = String(student.classId ?? "");
+    if (direct && Array.isArray(classes) && classes.some(c => String(c.id) === direct)) return direct;
+    const legacyName = String(student.className || "").trim();
+    const match = Array.isArray(classes) ? classes.find(c => String(c.name || "").trim() === legacyName) : null;
+    return match ? String(match.id) : "";
+  }
+
+  function getPlan(classId) {
+    return store().plansByClass[String(classId)] || { milestones: [], deletedMilestoneIds: [] };
+  }
+
+  function claimKey(classId, studentId, milestoneId) {
+    return `${String(classId)}::${String(studentId)}::${String(milestoneId)}`;
+  }
+
+  function saveStore() {
+    shared[ADDON_KEY] = normalizeStore(shared[ADDON_KEY]);
+    markSharedChanged();
+    persistShared(true);
+  }
+
+  function injectTeacherUI() {
+    const nav = document.querySelector("#teacher-screen nav[aria-label='Khu vực giáo viên']");
+    const classesPanel = $("teacher-classes");
+    if (!nav || !classesPanel || $("teacher-star-rewards")) return;
+
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "canva-button teacher-tab rounded-xl px-4 py-3 font-extrabold bg-white whitespace-nowrap";
+    tab.dataset.templateId = "tab-star-rewards";
+    tab.textContent = "Mốc sao & phần thưởng";
+    tab.addEventListener("click", () => openTeacherTab("star-rewards"));
+    nav.appendChild(tab);
+
+    const panel = document.createElement("section");
+    panel.id = "teacher-star-rewards";
+    panel.className = "teacher-panel hidden mt-5";
+    panel.innerHTML = `
+      <div class="grid lg:grid-cols-[.85fr_1.15fr] gap-5">
+        <form id="star-reward-form" class="soft-card p-6">
+          <p class="text-sm font-black text-orange-500">THIẾT LẬP PHẦN THƯỞNG</p>
+          <h2 class="font-black text-2xl mt-1">Tạo mốc tích sao</h2>
+          <p class="text-sm font-semibold text-slate-500 mt-2">Mỗi lớp có bộ mốc riêng. Ví dụ: 750 sao – phần thưởng đặc biệt.</p>
+          <label class="block font-extrabold mt-4" for="star-reward-class">Lớp áp dụng</label>
+          <select id="star-reward-class" required class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></select>
+          <label class="block font-extrabold mt-4" for="star-reward-threshold">Số sao cần đạt</label>
+          <input id="star-reward-threshold" type="number" min="1" step="1" required placeholder="Ví dụ: 750" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
+          <label class="block font-extrabold mt-4" for="star-reward-title">Tên phần thưởng</label>
+          <input id="star-reward-title" maxlength="90" required placeholder="Ví dụ: Hộp quà bí mật" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3">
+          <label class="block font-extrabold mt-4" for="star-reward-description">Mô tả / điều kiện nhận</label>
+          <textarea id="star-reward-description" rows="3" maxlength="300" placeholder="Giáo viên ghi phần thưởng học sinh sẽ nhận…" class="w-full mt-1 rounded-xl border-2 border-slate-200 p-3"></textarea>
+          <button type="submit" class="action rounded-xl bg-blue-500 text-white px-5 py-3 font-black mt-5">+ Thêm mốc thưởng</button>
+          <p id="star-reward-form-message" class="text-sm font-bold mt-3" aria-live="polite"></p>
+        </form>
+        <section class="soft-card p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 class="font-black text-2xl">Theo dõi mốc thưởng</h2><p class="text-sm font-semibold text-slate-500">Mỗi học sinh được theo dõi riêng trong lớp.</p></div>
+            <select id="star-reward-view-class" class="rounded-xl border-2 border-slate-200 p-3" aria-label="Chọn lớp xem thành tích"></select>
+          </div>
+          <div id="star-reward-teacher-list" class="mt-5 space-y-4"></div>
+        </section>
+      </div>`;
+    classesPanel.insertAdjacentElement("afterend", panel);
+
+    $("star-reward-class").addEventListener("change", () => {
+      $("star-reward-view-class").value = $("star-reward-class").value;
+      renderTeacherPanel();
+    });
+    $("star-reward-view-class").addEventListener("change", renderTeacherPanel);
+    $("star-reward-form").addEventListener("submit", onCreateMilestone);
+    renderTeacherPanel();
+  }
+
+  function fillClassSelect(select, selected = "") {
+    if (!select) return;
+    const available = Array.isArray(classes) ? classes : [];
+    select.innerHTML = available.length
+      ? available.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")
+      : `<option value="">Chưa có lớp</option>`;
+    if (available.some(c => String(c.id) === String(selected))) select.value = String(selected);
+    else if (available.length) select.value = String(available[0].id);
+  }
+
+  function renderTeacherPanel() {
+    const classSelect = $("star-reward-class");
+    const viewSelect = $("star-reward-view-class");
+    const list = $("star-reward-teacher-list");
+    if (!classSelect || !viewSelect || !list) return;
+    const previousForm = classSelect.value;
+    const previousView = viewSelect.value;
+    fillClassSelect(classSelect, previousForm || previousView);
+    fillClassSelect(viewSelect, previousView || classSelect.value);
+    const classId = String(viewSelect.value || "");
+    if (!classId) {
+      list.innerHTML = `<p class="rounded-xl bg-slate-50 p-4 font-bold text-slate-500">Hãy tạo lớp trước khi thiết lập mốc sao.</p>`;
+      return;
+    }
+    const plan = getPlan(classId);
+    const classStudents = (Array.isArray(students) ? students : []).filter(s => getClassId(s) === classId);
+    if (!plan.milestones.length) {
+      list.innerHTML = `<p class="rounded-xl bg-slate-50 p-4 font-bold text-slate-500">Lớp này chưa có mốc thưởng. Hãy tạo mốc đầu tiên ở khung bên trái.</p>`;
+      return;
+    }
+    list.innerHTML = plan.milestones.map(m => {
+      const studentRows = classStudents.length ? classStudents.map(student => {
+        const stars = Math.max(0, Number(student.stars) || 0);
+        const reached = stars >= m.stars;
+        const key = claimKey(classId, student.id, m.id);
+        const claim = store().claimsByKey[key];
+        const awarded = Boolean(claim?.awarded);
+        return `<div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
+          <div class="min-w-0"><strong>${esc(student.emoji || "🎈")} ${esc(student.name)}</strong>
+            <p class="text-xs font-bold text-slate-500">⭐ ${stars} / ${m.stars} sao · ${reached ? (awarded ? "Đã trao thưởng" : "Đã đạt mốc") : `Còn ${m.stars - stars} sao`}</p></div>
+          ${reached ? `<button type="button" data-reward-claim="${esc(key)}" class="rounded-lg px-3 py-2 text-xs font-black ${awarded ? "bg-emerald-100 text-emerald-700" : "bg-yellow-100 text-yellow-800"}">${awarded ? "✓ Đã trao · Hoàn tác" : "Đánh dấu đã trao"}</button>` : `<span class="text-xs font-black text-slate-400">Chưa đạt</span>`}
+        </div>`;
+      }).join("") : `<p class="text-sm font-bold text-slate-500">Lớp chưa có hồ sơ học sinh.</p>`;
+      return `<article class="rounded-2xl border-2 border-slate-100 p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><p class="text-xs font-black text-yellow-700">MỐC ${m.stars.toLocaleString("vi-VN")} ⭐</p><h3 class="font-black text-xl">${esc(m.title)}</h3><p class="text-sm text-slate-500 mt-1">${esc(m.description || "Không có mô tả")}</p></div>
+        <button type="button" data-reward-delete="${esc(classId)}::${esc(m.id)}" class="rounded-lg bg-rose-50 px-3 py-2 text-xs font-black text-rose-700">Xóa mốc</button></div>
+        <div class="mt-4 space-y-2">${studentRows}</div>
+      </article>`;
+    }).join("");
+    list.querySelectorAll("[data-reward-claim]").forEach(button => button.addEventListener("click", () => toggleAward(button.dataset.rewardClaim)));
+    list.querySelectorAll("[data-reward-delete]").forEach(button => button.addEventListener("click", () => deleteMilestone(button.dataset.rewardDelete)));
+  }
+
+  function onCreateMilestone(event) {
+    event.preventDefault();
+    const classId = String($("star-reward-class").value || "");
+    const stars = Math.floor(Number($("star-reward-threshold").value));
+    const title = String($("star-reward-title").value || "").trim();
+    const description = String($("star-reward-description").value || "").trim();
+    const message = $("star-reward-form-message");
+    if (!classId || !Array.isArray(classes) || !classes.some(c => String(c.id) === classId)) {
+      message.textContent = "Hãy chọn một lớp hợp lệ."; message.className = "text-sm font-bold mt-3 text-rose-600"; return;
+    }
+    if (!Number.isFinite(stars) || stars < 1 || !title) {
+      message.textContent = "Hãy nhập số sao hợp lệ và tên phần thưởng."; message.className = "text-sm font-bold mt-3 text-rose-600"; return;
+    }
+    const data = store();
+    const plan = data.plansByClass[classId] || { milestones: [], deletedMilestoneIds: [], updatedAt: stamp() };
+    if (plan.milestones.some(m => Number(m.stars) === stars)) {
+      message.textContent = "Lớp này đã có mốc ở số sao đó. Hãy chọn một mốc khác."; message.className = "text-sm font-bold mt-3 text-rose-600"; return;
+    }
+    const time = stamp();
+    plan.milestones.push({ id: uid("milestone"), stars, title, description, createdAt: time, updatedAt: time });
+    plan.milestones.sort((a, b) => a.stars - b.stars);
+    plan.updatedAt = time;
+    data.plansByClass[classId] = plan;
+    saveStore();
+    event.target.reset();
+    $("star-reward-class").value = classId;
+    $("star-reward-view-class").value = classId;
+    message.textContent = "Đã thêm mốc thưởng cho lớp này.";
+    message.className = "text-sm font-bold mt-3 text-emerald-700";
+    renderTeacherPanel();
+  }
+
+  function toggleAward(key) {
+    const data = store();
+    const previous = data.claimsByKey[key] || {};
+    const awarded = !Boolean(previous.awarded);
+    data.claimsByKey[key] = { awarded, awardedAt: awarded ? stamp() : null, updatedAt: stamp() };
+    saveStore();
+    renderTeacherPanel();
+  }
+
+  function deleteMilestone(compositeKey) {
+    const [classId, milestoneId] = String(compositeKey).split("::");
+    if (!classId || !milestoneId || !confirm("Xóa mốc thưởng này? Lịch sử đã trao thưởng của học sinh sẽ không bị xóa.")) return;
+    const data = store();
+    const plan = data.plansByClass[classId];
+    if (!plan) return;
+    plan.milestones = plan.milestones.filter(m => String(m.id) !== milestoneId);
+    plan.deletedMilestoneIds = [...new Set([...(plan.deletedMilestoneIds || []), milestoneId])];
+    plan.updatedAt = stamp();
+    saveStore();
+    renderTeacherPanel();
+  }
+
+  function renderStudentMilestones() {
+    const host = $("student-star-rewards");
+    if (!host) return;
+    const student = activeStudent;
+    if (!student || student.id === "guest") {
+      host.innerHTML = `<p class="rounded-xl bg-slate-50 p-4 font-bold text-slate-500">Đăng nhập hồ sơ học sinh để xem các mốc thưởng cá nhân.</p>`;
+      return;
+    }
+    const classId = getClassId(student);
+    if (!classId) {
+      host.innerHTML = `<p class="rounded-xl bg-slate-50 p-4 font-bold text-slate-500">Hồ sơ này chưa được xếp vào lớp có thiết lập mốc thưởng.</p>`;
+      return;
+    }
+    const plan = getPlan(classId);
+    const milestones = plan.milestones;
+    const stars = Math.max(0, Number(student.stars) || 0);
+    if (!milestones.length) {
+      host.innerHTML = `<p class="rounded-xl bg-slate-50 p-4 font-bold text-slate-500">Giáo viên chưa thiết lập mốc thưởng cho ${esc(getStudentClassName(student))}.</p>`;
+      return;
+    }
+    const next = milestones.find(m => stars < m.stars);
+    const progress = next ? Math.min(100, Math.round(stars / next.stars * 100)) : 100;
+    const items = milestones.map(m => {
+      const reached = stars >= m.stars;
+      const claim = store().claimsByKey[claimKey(classId, student.id, m.id)];
+      const awarded = Boolean(claim?.awarded);
+      return `<article class="rounded-2xl border-2 ${reached ? "border-yellow-200 bg-yellow-50" : "border-slate-100 bg-white"} p-4">
+        <div class="flex items-start gap-3"><div class="text-3xl">${reached ? (awarded ? "🎁" : "🌟") : "🔒"}</div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><strong class="font-black">${esc(m.title)}</strong><span class="text-sm font-black text-yellow-700">${m.stars.toLocaleString("vi-VN")} ⭐</span></div>
+        <p class="text-sm text-slate-500 mt-1">${esc(m.description || "Phần thưởng do giáo viên thiết lập")}</p>
+        <p class="text-xs font-black mt-2 ${awarded ? "text-emerald-700" : reached ? "text-yellow-800" : "text-slate-400"}">${awarded ? "Giáo viên đã trao phần thưởng" : reached ? "Em đã đạt mốc – chờ giáo viên trao thưởng" : `Còn ${Math.max(0, m.stars - stars).toLocaleString("vi-VN")} sao nữa`}</p></div></div>
+      </article>`;
+    }).join("");
+    host.innerHTML = `<div class="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-4"><div class="flex flex-wrap justify-between gap-2"><strong class="text-indigo-900">${esc(getStudentClassName(student))}</strong><strong class="text-yellow-700">${stars.toLocaleString("vi-VN")} ⭐</strong></div><p class="text-sm font-bold text-indigo-700 mt-1">${next ? `Mốc tiếp theo: ${next.stars.toLocaleString("vi-VN")} sao · ${esc(next.title)}` : "Em đã chinh phục tất cả các mốc hiện tại!"}</p><div class="h-3 bg-white rounded-full overflow-hidden mt-3"><div class="h-full bg-yellow-400 rounded-full" style="width:${progress}%"></div></div></div><div class="grid sm:grid-cols-2 gap-3">${items}</div>`;
+  }
+
+  function installRenderHooks() {
+    if (window.__starRewardRenderHooksInstalled) return;
+    window.__starRewardRenderHooksInstalled = true;
+    if (typeof renderAchievements === "function") {
+      const originalRenderAchievements = renderAchievements;
+      renderAchievements = function () {
+        originalRenderAchievements();
+        renderStudentMilestones();
+      };
+    }
+    if (typeof openTeacherTab === "function") {
+      const originalOpenTeacherTab = openTeacherTab;
+      openTeacherTab = function (name) {
+        const result = originalOpenTeacherTab(name);
+        if (name === "star-rewards") renderTeacherPanel();
+        return result;
+      };
+    }
+  }
+
+  function injectStudentUI() {
+    const screen = $("achievements-screen");
+    const badgeList = $("badge-list");
+    if (!screen || !badgeList || $("student-star-rewards")) return;
+    const section = document.createElement("section");
+    section.id = "student-star-rewards-section";
+    section.className = "mt-8";
+    section.innerHTML = `<div class="flex flex-wrap items-end justify-between gap-3 mb-4"><div><h2 class="fun-title text-3xl">Hành trình đổi sao</h2><p class="font-bold text-slate-500">Tích lũy sao để mở khóa những phần thưởng do giáo viên tạo.</p></div></div><div id="student-star-rewards" class="grid gap-3"></div>`;
+    badgeList.insertAdjacentElement("afterend", section);
+    renderStudentMilestones();
+  }
+
+  function initializeAddon() {
+    try {
+      installPersistenceBridge();
+      if (shared && !shared[ADDON_KEY]) shared[ADDON_KEY] = emptyStore();
+      installRenderHooks();
+      injectTeacherUI();
+      injectStudentUI();
+      if (typeof currentTeacherTab !== "undefined" && currentTeacherTab === "star-rewards") renderTeacherPanel();
+    } catch (error) {
+      console.error("Star rewards add-on initialization failed:", error);
+    }
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initializeAddon, { once: true });
+  else initializeAddon();
+})();

@@ -943,9 +943,12 @@
         setSyncStatus("Đang đồng bộ…");
         // Serialize writes within this tab. Across devices, revision compare-and-swap
         // prevents stale snapshots from replacing a newer save.
+        // Capture this save's exact outbox before it enters the queue. A newer
+        // local answer may arrive while an earlier network write is in flight.
+        const queuedOutbox = outbox;
+        const pendingSnapshot = JSON.parse(JSON.stringify(queuedOutbox?.snapshot || shared));
+        const wasMigration = Boolean(queuedOutbox?.migration);
         writeChain = writeChain.then(async () => {
-          const wasMigration = Boolean(outbox?.migration);
-          const pendingSnapshot = JSON.parse(JSON.stringify(outbox?.snapshot || shared));
           let saved = false;
           let lastConflict = null;
 
@@ -1015,9 +1018,16 @@
             throw conflict;
           }
 
-          pendingLocalMutation = false;
-          explicitMutation = false;
-          outbox = null;
+          // Clear only the outbox that this queued save actually persisted.
+          // If a newer local mutation arrived meanwhile, leave it queued for
+          // the next write instead of accidentally marking it as saved.
+          if (outbox === queuedOutbox) {
+            pendingLocalMutation = false;
+            explicitMutation = false;
+            outbox = null;
+          } else {
+            pendingLocalMutation = true;
+          }
           migrationCompleted = migrationCompleted || wasMigration;
           shared.migrationCompleted = migrationCompleted;
           cacheShared();

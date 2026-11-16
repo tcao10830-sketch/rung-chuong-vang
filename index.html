@@ -97,7 +97,7 @@
           try {
             await notify(true);
             clearInterval(pollTimer);
-            pollTimer = setInterval(() => notify(false).catch(() => {}), 15000);
+            pollTimer = setInterval(() => notify(false).catch(() => {}), 10000);
             return { isOk: true };
           } catch (error) {
             console.error("Supabase sync error:", error);
@@ -124,14 +124,18 @@
               revision: Number(record.revision || 0),
               updated_at: record.updated_at || new Date().toISOString()
             };
+            // Do not upsert here: a concurrent first save must not silently
+            // replace the record created by another device.
             const response = await fetch(base, {
               method: "POST",
-              headers: { ...headers(), Prefer: "resolution=merge-duplicates,return=representation" },
+              headers: { ...headers(), Prefer: "return=representation" },
               body: JSON.stringify(body)
             });
             if (!response.ok) {
               const details = await response.text().catch(() => "");
-              throw new Error(`Supabase create ${response.status}${details ? `: ${details}` : ""}`);
+              const error = new Error(`Supabase create ${response.status}${details ? `: ${details}` : ""}`);
+              if (response.status === 409) error.code = "SYNC_CONFLICT";
+              throw error;
             }
             const createdRows = await response.json().catch(() => []);
             if (!Array.isArray(createdRows) || createdRows.length === 0) {
@@ -152,7 +156,16 @@
               revision: Number(record.revision || 0),
               updated_at: record.updated_at || new Date().toISOString()
             };
-            const url = `${base}?data_key=eq.${encodeURIComponent(record.data_key)}`;
+            // Compare-and-swap: only update the exact revision that was read.
+            // If another student/device saved first, zero returned rows means
+            // conflict and the caller must re-read, merge, and retry.
+            if (!Object.prototype.hasOwnProperty.call(record, "expectedRevision")) {
+              throw new Error("Thiếu revision gốc để kiểm tra xung đột đồng bộ.");
+            }
+            const revisionFilter = record.expectedRevision === null
+              ? "revision=is.null"
+              : `revision=eq.${encodeURIComponent(String(record.expectedRevision))}`;
+            const url = `${base}?data_key=eq.${encodeURIComponent(record.data_key)}&${revisionFilter}`;
             const response = await fetch(url, {
               method: "PATCH",
               headers: { ...headers(), Prefer: "return=representation" },
@@ -162,32 +175,12 @@
               const details = await response.text().catch(() => "");
               throw new Error(`Supabase update ${response.status}${details ? `: ${details}` : ""}`);
             }
-
-            // Supabase can return HTTP 2xx even when RLS or a stale key means
-            // that no row was actually updated. Do not report a false success.
             const updatedRows = await response.json().catch(() => []);
             if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
-              const upsertResponse = await fetch(`${base}?on_conflict=data_key`, {
-                method: "POST",
-                headers: { ...headers(), Prefer: "resolution=merge-duplicates,return=representation" },
-                body: JSON.stringify({
-                  data_key: record.data_key,
-                  data_type: record.data_type,
-                  data_value: body.data_value,
-                  revision: body.revision,
-                  updated_at: body.updated_at
-                })
-              });
-              if (!upsertResponse.ok) {
-                const details = await upsertResponse.text().catch(() => "");
-                throw new Error(`Supabase upsert ${upsertResponse.status}${details ? `: ${details}` : ""}`);
-              }
-              const upsertedRows = await upsertResponse.json().catch(() => []);
-              if (!Array.isArray(upsertedRows) || upsertedRows.length === 0) {
-                throw new Error("Supabase không xác nhận đã ghi dữ liệu (không có bản ghi trả về).");
-              }
+              const conflict = new Error("CONFLICT: dữ liệu vừa được thiết bị khác cập nhật.");
+              conflict.code = "SYNC_CONFLICT";
+              throw conflict;
             }
-
             await notify(true);
             return { isOk: true };
           } catch (error) {
@@ -948,65 +941,88 @@
         if (!window.dataSdk) return;
         syncing = true;
         setSyncStatus("Đang đồng bộ…");
-        // Serialize writes in this browser; read/merge server state before each write to reduce cross-device lost updates.
+        // Serialize writes within this tab. Across devices, revision compare-and-swap
+        // prevents stale snapshots from replacing a newer save.
         writeChain = writeChain.then(async () => {
           const wasMigration = Boolean(outbox?.migration);
-          // Merge the latest server state into this device's pending state before
-          // replacing the shared snapshot. This preserves other students' progress
-          // when their answers arrived since this device last read the server.
-          if (typeof window.dataSdk.readLatest === "function") {
+          const pendingSnapshot = JSON.parse(JSON.stringify(outbox?.snapshot || shared));
+          let saved = false;
+          let lastConflict = null;
+
+          // A busy classroom can produce simultaneous saves. On conflict, re-read
+          // the canonical snapshot, merge this device's pending work, and retry.
+          for (let attempt = 0; attempt < 6 && !saved; attempt++) {
+            if (typeof window.dataSdk.readLatest !== "function") {
+              throw new Error("Nguồn dữ liệu không hỗ trợ đọc phiên bản mới nhất.");
+            }
             const latestResult = await window.dataSdk.readLatest();
             if (!latestResult.isOk) throw (latestResult.error || new Error("Không đọc được dữ liệu mới nhất trước khi lưu."));
             const latestRow = latestResult.record;
             if (latestRow?.data_value) {
               let latestSnapshot;
-              try { latestSnapshot = JSON.parse(latestRow.data_value); } catch { latestSnapshot = null; }
-              if (latestSnapshot && typeof latestSnapshot === "object") {
-                const pendingSnapshot = JSON.parse(JSON.stringify(shared));
-                shared = mergeSharedData(latestSnapshot, pendingSnapshot);
-                shared.deletedStudents = mergeDeletedStudents(latestSnapshot.deletedStudents, pendingSnapshot.deletedStudents);
-                shared.deletedRounds = mergeDeletedRounds(latestSnapshot.deletedRounds, pendingSnapshot.deletedRounds);
-                shared.deletedRounds = mergeDeletedRounds(latestSnapshot.deletedRounds, pendingSnapshot.deletedRounds);
-                bindShared();
-                sharedRecord = latestRow;
-                remoteHasRecord = true;
-                remoteRevision = Number(latestRow.revision || latestSnapshot.revision || 0);
+              try { latestSnapshot = JSON.parse(latestRow.data_value); }
+              catch { throw new Error("Dữ liệu dùng chung trên máy chủ không đọc được; đã giữ nguyên bản chờ đồng bộ trên thiết bị."); }
+              if (!latestSnapshot || typeof latestSnapshot !== "object") {
+                throw new Error("Dữ liệu dùng chung trên máy chủ không hợp lệ; đã giữ nguyên bản chờ đồng bộ trên thiết bị.");
               }
+              shared = mergeSharedData(latestSnapshot, pendingSnapshot);
+              shared.deletedStudents = mergeDeletedStudents(latestSnapshot.deletedStudents, pendingSnapshot.deletedStudents);
+              shared.deletedRounds = mergeDeletedRounds(latestSnapshot.deletedRounds, pendingSnapshot.deletedRounds);
+              bindShared();
+              sharedRecord = latestRow;
+              remoteHasRecord = true;
+              remoteRevision = Number(latestRow.revision ?? latestSnapshot.revision ?? 0);
+            } else {
+              shared = JSON.parse(JSON.stringify(pendingSnapshot));
+              bindShared();
+              sharedRecord = null;
+              remoteHasRecord = false;
+              remoteRevision = 0;
+            }
+
+            markSharedChanged();
+            const record = {
+              data_type:DATA_TYPE,
+              data_key:SHARED_KEY,
+              data_value:buildSnapshot(),
+              revision:Number(shared.revision),
+              updated_at:shared.updatedAt
+            };
+            const target = sharedRecord;
+            const result = target
+              ? await window.dataSdk.update({...target, ...record, expectedRevision:target.revision ?? null})
+              : await window.dataSdk.create(record);
+
+            if (result.isOk) {
+              saved = true;
+              remoteHasRecord = true;
+              remoteRevision = Number(record.revision || 0);
+              sharedRecord = target ? {...target, ...record} : {...record, __backendId:record.data_key};
+            } else if (result.error?.code === "SYNC_CONFLICT" || String(result.error?.message || "").startsWith("CONFLICT:")) {
+              lastConflict = result.error;
+              continue;
+            } else {
+              throw (result.error || new Error("Không thể lưu dữ liệu dùng chung."));
             }
           }
-          markSharedChanged();
-          const record = {
-            data_type:DATA_TYPE,
-            data_key:SHARED_KEY,
-            data_value:buildSnapshot(),
-            revision:Number(shared.revision),
-            updated_at:shared.updatedAt
-          };
-          const target = sharedRecord;
-          const result = target
-            ? await window.dataSdk.update({...target, ...record})
-            : await window.dataSdk.create(record);
-          if (!result.isOk) {
-            cacheShared();
-            const reason = result.error?.message ? ` · ${result.error.message}` : "";
-            setSyncStatus(`Đồng bộ thất bại${reason}`, true);
-            return;
+
+          if (!saved) {
+            const conflict = new Error(lastConflict?.message || "Có nhiều thiết bị đang cập nhật cùng lúc. Dữ liệu vẫn được giữ trên thiết bị; vui lòng thử đồng bộ lại.");
+            conflict.code = "SYNC_RETRY_EXHAUSTED";
+            throw conflict;
           }
+
           pendingLocalMutation = false;
           explicitMutation = false;
           outbox = null;
-          remoteHasRecord = true;
-          remoteRevision = Number(record.revision || 0);
           migrationCompleted = migrationCompleted || wasMigration;
           shared.migrationCompleted = migrationCompleted;
-          // Keep the confirmed record identity for subsequent updates.
-          if (target) sharedRecord = {...target, ...record};
-          setSyncStatus(`Đã đồng bộ · PC ↔ điện thoại · ${new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}`);
-          // Re-read the confirmed shared record so every device converges.
-          await initializeSharedData();
-        }).catch(() => {
           cacheShared();
-          setSyncStatus("Chưa đồng bộ · Thử lại", true);
+          setSyncStatus(`Đã đồng bộ · PC ↔ điện thoại · ${new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}`);
+        }).catch(error => {
+          cacheShared();
+          const reason = error?.message ? ` · ${error.message}` : "";
+          setSyncStatus(`Chưa đồng bộ · Thử lại${reason}`, true);
         }).finally(() => { syncing = false; });
         await writeChain;
       };

@@ -1000,6 +1000,9 @@
               sharedRecord = target ? {...target, ...record} : {...record, __backendId:record.data_key};
             } else if (result.error?.code === "SYNC_CONFLICT" || String(result.error?.message || "").startsWith("CONFLICT:")) {
               lastConflict = result.error;
+              // A short stagger reduces repeated collisions when several students
+              // all retry immediately after the same revision conflict.
+              await new Promise(resolve => setTimeout(resolve, 80 * (attempt + 1) + Math.random() * 120));
               continue;
             } else {
               throw (result.error || new Error("Không thể lưu dữ liệu dùng chung."));
